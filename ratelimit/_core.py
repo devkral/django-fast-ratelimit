@@ -56,10 +56,10 @@ def _get_cache_key(group: str, hashctx, prefix: str):
 
 
 @functools.lru_cache()
-def _parse_parts(methods, hashname):
+def _parse_parts(rate: tuple, methods: frozenset, hashname: str):
     if not hashname:
         hashname = getattr(settings, "RATELIMIT_KEY_HASH", "sha256")
-    hasher = hashlib.new(hashname)
+    hasher = hashlib.new(hashname, str(rate[1]).encode("utf-8"))
 
     if isinstance(methods, invertedset):
         hasher.update(b"i")
@@ -147,7 +147,7 @@ def _(key):
 
 
 def get_ratelimit(
-    group, key, *, rate=None, request=None, methods=ALL, inc=False,
+    group, key, rate, *, request=None, methods=ALL, inc=False,
     prefix=None, cache=None, hash_algo=None, hashctx=None
 ):
     if callable(group):
@@ -177,7 +177,6 @@ def get_ratelimit(
     if callable(rate):
         rate = rate(request, group)
     rate = _parse_rate(rate)
-    assert(rate or not inc)
 
     if not prefix:
         prefix = getattr(settings, 'RATELIMIT_KEY_PREFIX', 'frl:')
@@ -187,7 +186,7 @@ def get_ratelimit(
         cache = caches[cache]
 
     if not hashctx:
-        hashctx = _parse_parts(methods, hash_algo).copy()
+        hashctx = _parse_parts(rate, methods, hash_algo).copy()
         hashctx.update(key)
     else:
         hashctx = hashctx.copy()
@@ -207,12 +206,6 @@ def get_ratelimit(
     else:
         count = cache.get(cache_key, 0)
 
-    if not rate:
-        return {
-            "count": count,
-            "group": group
-        }
-
     return {
         "count": count,
         "limit": rate[0],
@@ -225,6 +218,7 @@ def get_ratelimit(
 
 def decorate(func=None, block=False, **context):
     assert(context.get("key"))
+    assert(context.get("rate"))
     assert("request" not in context)
     assert("inc" not in context)
     if "methods" not in context:
@@ -249,7 +243,7 @@ def decorate(func=None, block=False, **context):
             if not isinstance(context["methods"], frozenset):
                 context["methods"] = frozenset(context["methods"])
             context["hashctx"] = _parse_parts(
-                context["methods"], context["hash_algo"]
+                context["rate"], context["methods"], context["hash_algo"]
             )
             if isinstance(context["key"], bytes):
                 context["hashctx"].update(context["key"])

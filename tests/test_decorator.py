@@ -27,10 +27,10 @@ class DecoratorTests(TestCase):
 
     def test_basic(self):
         func = ratelimit.decorate(
-            rate="2/s", key="ip", block=True
+            rate="2/2s", key="ip", block=True
         )(func_beautyname)
         func = ratelimit.decorate(
-            rate="1/s", key="ip"
+            rate="1/2s", key="ip"
         )(func)
         r = self.factory.get("/home")
         func(r)

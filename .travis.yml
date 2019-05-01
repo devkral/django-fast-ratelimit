@@ -10,9 +10,10 @@ branches:
   - master
 env:
   global:
-    - DJANGO_SETTINGS_MODULE=test.testsettings
+    - DJANGO_SETTINGS_MODULE=test_settings
     - PYTHONPATH="."
   matrix:
+    - DJANGO_DEP="django==2.0"
     - DJANGO_DEP="django==2.1"
     - DJANGO_DEP="django==2.2"
     - DJANGO_DEP="git+https://github.com/django/django.git"
@@ -28,6 +29,5 @@ matrix:
 install:
   - pip install poetry
   - poetry install
-  - poetry run pip install --upgrade pip
   - poetry run pip install "${DJANGO_DEP}"
 script: poetry run django-admin.py test tests

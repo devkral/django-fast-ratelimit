@@ -8,6 +8,9 @@ readme = "README.md"
 repository = "https://https://github.com/devkral/django-fast-ratelimit"
 classifiers = [
 ]
+packages = [
+  { include = "ratelimit" },
+]
 
 [tool.poetry.dependencies]
 python = ">=3.5"

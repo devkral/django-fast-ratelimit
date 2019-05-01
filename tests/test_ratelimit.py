@@ -3,7 +3,9 @@ import hashlib
 import types
 import time
 
-from django.test import TestCase, RequestFactory, override_settings
+from django.test import (
+    TestCase, TransactionTestCase, RequestFactory, override_settings
+)
 
 import ratelimit
 from ratelimit._core import (
@@ -46,14 +48,10 @@ class ConstructionTests(TestCase):
             _parse_rate("1")
 
 
-class RatelimitTests(TestCase):
+class RatelimitTests(TransactionTestCase):
 
     def setUp(self):
         self.factory = RequestFactory()
-        # make sure that there is enough time to fullfill the test
-        # elsewise buckets swap and tests fail sometimes
-        if time.time() % 1 > 0.7:
-            time.sleep(0.35)
 
     def test_basic(self):
         r = None

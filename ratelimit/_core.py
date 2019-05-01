@@ -93,6 +93,7 @@ def _(rate):
     return tuple(rate)
 
 
+@_parse_rate.register(type(None))
 @_parse_rate.register(tuple)
 def _(rate):
     return rate
@@ -146,8 +147,8 @@ def _(key):
 
 
 def get_ratelimit(
-    group, key, rate, *, request=None, methods=ALL, inc=False, prefix=None,
-    cache=None, hash_algo=None, hashctx=None
+    group, key, *, rate=None, request=None, methods=ALL, inc=False,
+    prefix=None, cache=None, hash_algo=None, hashctx=None
 ):
     if callable(group):
         group = group(request)
@@ -176,6 +177,7 @@ def get_ratelimit(
     if callable(rate):
         rate = rate(request, group)
     rate = _parse_rate(rate)
+    assert(rate or not inc)
 
     if not prefix:
         prefix = getattr(settings, 'RATELIMIT_KEY_PREFIX', 'frl:')
@@ -184,8 +186,6 @@ def get_ratelimit(
     if isinstance(cache, str):
         cache = caches[cache]
 
-    # start of window, required as timeout is non-instant
-    epoch = int(time.time()) // rate[1]
     if not hashctx:
         hashctx = _parse_parts(methods, hash_algo).copy()
         hashctx.update(key)
@@ -193,7 +193,6 @@ def get_ratelimit(
         hashctx = hashctx.copy()
         if key is not True:
             hashctx.update(key)
-    hashctx.update(b"%d" % epoch)
     cache_key = _get_cache_key(group, hashctx, prefix)
 
     if inc:
@@ -208,12 +207,18 @@ def get_ratelimit(
     else:
         count = cache.get(cache_key, 0)
 
+    if not rate:
+        return {
+            "count": count,
+            "group": group
+        }
+
     return {
         "count": count,
         "limit": rate[0],
         # how many ratelimits request limit
         "request_limit": 1 if count is None or count > rate[0] else 0,
-        "end": epoch + rate[1],
+        "end": int(time.time()) + rate[1],
         "group": group
     }
 

@@ -1,4 +1,3 @@
-import time
 
 from django.http import HttpResponse
 from django.test import TestCase, RequestFactory
@@ -25,10 +24,6 @@ class DecoratorTests(TestCase):
 
     def setUp(self):
         self.factory = RequestFactory()
-        # make sure that there is enough time to fullfill the test
-        # elsewise buckets swap and tests fail sometimes
-        if time.time() % 1 > 0.7:
-            time.sleep(0.35)
 
     def test_basic(self):
         func = ratelimit.decorate(

@@ -225,7 +225,6 @@ def get_ratelimit(
 
 def decorate(func=None, block=False, **context):
     assert(context.get("key"))
-    assert(context.get("rate"))
     assert("request" not in context)
     assert("inc" not in context)
     if "methods" not in context:

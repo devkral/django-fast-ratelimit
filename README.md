@@ -4,6 +4,15 @@
 Django-fast-ratelimit provides a secure and fast ratelimit facility based on the django caching framework.
 
 
+## Installation
+
+```` bash
+pip install django-fast-ratelimit
+
+````
+
+Note: pip >= 19 is required, I use the novel pyproject.toml method
+
 ## usage
 
 

@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "django-fast-ratelimit"
+description = "Fast ratelimit implementation with django caches"
+version = "0.1"
+license = "MIT"
+authors = ["Alexander Kaftan"]
+readme = "README.md"
+repository = "https://https://github.com/devkral/django-fast-ratelimit"
+classifiers = [
+]
+
+[tool.poetry.dependencies]
+python = ">=3.5"
+django = '>=2.0'
+
+
+[build-system]
+requires = ["poetry>=0.12"]
+build-backend = "poetry.masonry.api"

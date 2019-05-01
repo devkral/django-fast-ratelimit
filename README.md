@@ -26,13 +26,29 @@ blocking Decorator (raises RatelimitError):
 ```` python
 import ratelimit
 
-@ratelimit.decorate(key="ip", rate="1/s", block=True, ratelimit.UNSAFE)
+@ratelimit.decorate(key="ip", rate="1/s", block=True, methods=ratelimit.UNSAFE)
 def expensive_func(request):
     # how many ratelimits request limiting
     if request.ratelimit["end"] > 0:
 
 ````
 
+
+
+decorate View (requires group):
+
+```` python
+import ratelimit
+from django.views.generic import View
+from django.utils.decorators import method_decorator
+
+
+@method_decorator(ratelimit.decorate(
+  key="ip", rate="1/s", block=True, methods=ratelimit.SAFE, group="required"
+), name="dispatch")
+class FooView(View):
+    ...
+````
 
 manual
 ```` python

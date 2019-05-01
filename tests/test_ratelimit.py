@@ -50,8 +50,10 @@ class RatelimitTests(TestCase):
 
     def setUp(self):
         self.factory = RequestFactory()
-        if time.monotonic() % 1 > 0.8:
-            time.sleep(0.3)
+        # make sure that there is enough time to fullfill the test
+        # elsewise buckets swap and tests fail sometimes
+        if time.time() % 1 > 0.7:
+            time.sleep(0.35)
 
     def test_basic(self):
         r = None

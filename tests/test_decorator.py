@@ -12,17 +12,23 @@ def func_beautyname(request):
     return HttpResponse()
 
 
-@method_decorator(ratelimit.decorate(rate="1/s", key=b"abc2"), name="dispatch")
+@method_decorator(ratelimit.decorate(
+    rate="1/s", key=b"34d<", group="here_required"
+), name="dispatch")
 class BogoView(View):
-    pass
+
+    def get(self, request, *args, **kwargs):
+        return HttpResponse()
 
 
 class DecoratorTests(TestCase):
 
     def setUp(self):
         self.factory = RequestFactory()
-        if time.monotonic() % 1 > 0.8:
-            time.sleep(0.3)
+        # make sure that there is enough time to fullfill the test
+        # elsewise buckets swap and tests fail sometimes
+        if time.time() % 1 > 0.7:
+            time.sleep(0.35)
 
     def test_basic(self):
         func = ratelimit.decorate(
@@ -40,3 +46,11 @@ class DecoratorTests(TestCase):
         with self.assertRaises(ratelimit.RatelimitExceeded):
             r = self.factory.get("/home")
             func(r)
+
+    def test_view(self):
+        r = self.factory.get("/home")
+        BogoView.as_view()(r)
+        self.assertEquals(
+            r.ratelimit["group"],
+            "here_required"
+        )

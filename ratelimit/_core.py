@@ -232,8 +232,11 @@ def decorate(func=None, block=False, **context):
 
     def _decorate(fn):
         if not context.get("group"):
+            intern_fn = fn
+            if isinstance(intern_fn, functools.partial):
+                intern_fn = intern_fn.func
             context["group"] = "%s.%s" % (
-                fn.__module__, fn.__qualname__
+                intern_fn.__module__, intern_fn.__qualname__
             )
         if not callable(context["rate"]):
             # result is not callable too (tuple)

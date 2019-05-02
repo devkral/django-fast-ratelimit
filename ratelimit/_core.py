@@ -44,14 +44,14 @@ def _get_group_hash(group: str) -> str:
     return base64.b85encode(hashlib.new(
         getattr(settings, "RATELIMIT_GROUP_HASH", "md5"),
         group.encode("utf-8")
-    ).digest())
+    ).digest()).decode("ascii")
 
 
 def _get_cache_key(group: str, hashctx, prefix: str):
     return "%(prefix)s%(group)s:%(parts)s" % {
         "prefix": prefix,
         "group": _get_group_hash(group),
-        "parts": base64.b85encode(hashctx.digest())
+        "parts": base64.b85encode(hashctx.digest()).decode("ascii")
     }
 
 

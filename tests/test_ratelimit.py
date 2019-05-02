@@ -87,7 +87,8 @@ class RatelimitTests(TransactionTestCase):
 
         for i in range(0, 2):
             r = ratelimit.get_ratelimit(
-                group="foo", rate="1/s", key="ip:32", inc=True, request=request
+                group="foo", rate="1/s", key="ip:32/64", inc=True,
+                request=request
             )
         self.assertEqual(r["request_limit"], 1)
         r = ratelimit.get_ratelimit(
@@ -107,7 +108,7 @@ class RatelimitTests(TransactionTestCase):
 
         for i in range(0, 2):
             r = ratelimit.get_ratelimit(
-                group="abasd", rate="1/s", key="ip:32", inc=True,
+                group="abasd", rate="1/s", key="ip:32/64", inc=True,
                 request=request, methods=["GET"]
             )
         self.assertEqual(r["request_limit"], 1)
@@ -120,7 +121,7 @@ class RatelimitTests(TransactionTestCase):
     def test_inverted(self):
         request = self.factory.get('/customer/details')
         r = ratelimit.get_ratelimit(
-            group="zafaiusl", rate="1/s", key="ip:32", inc=True,
+            group="zafaiusl", rate="1/s", key="ip:32/64", inc=True,
             request=request, methods=ratelimit.invertedset(["GET"])
         )
         self.assertEqual(r["count"], 0)

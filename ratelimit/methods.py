@@ -1,37 +1,78 @@
 __all__ = ["user_or_ip", "user_and_ip", "ip", "user", "get"]
 
 import functools
+import ipaddress
+from django.http import HttpRequest
 
 
 @functools.singledispatch
 def user_or_ip(request, group):
     if request.user.is_authenticated:
         return str(request.user.pk)
-    return request.META['REMOTE_ADDR']
+    return ipaddress.ip_network(
+        request.META['REMOTE_ADDR'], strict=False
+    ).compressed
 
 
 @user_or_ip.register(str)
 def _(netmask):
+    # ipv4, ipv6, default ipv6 (ipv4 is too fragmented)
+    netmask = netmask.split("/", 1)
+    # turn mask into difference:
+    if len(netmask) == 1:
+        netmask = (0, int(netmask[0]))
+    return user_or_ip()
+
+
+@user_or_ip.register(list)
+@user_or_ip.register(tuple)
+def _(netmask):
+    netmask = (32 - int(netmask[0]), 128 - int(netmask[1]))
+    assert(netmask[0] >= 0)
+    assert(netmask[1] >= 0)
+    if netmask == (32, 128):
+        return user_or_ip.dispatch(HttpRequest)
+
     def _(request, group):
         if request.user.is_authenticated:
             return str(request.user.pk)
-        return request.META['REMOTE_ADDR']
+        ipnet = ipaddress.ip_network(
+            request.META['REMOTE_ADDR'], strict=False
+        )
+        if ipnet.version == 4:
+            return ipnet.supernet(netmask[0]).compressed
+        else:
+            return ipnet.supernet(netmask[1]).compressed
     return _
 
 
 @functools.singledispatch
-def get(_noarg=None):
+def get(_noarg):
     raise ValueError("invalid argument")
 
 
 @get.register(dict)
 def _(config):
-    ipactive = config.get("IP")
     headers = set(config.get("HEADER", []))
+    netmask = config.get("IP")
+    # ipv4, ipv6, default ipv6 (ipv4 is too fragmented)
     if "REMOTE_ADDR" in headers:
         headers.remove("REMOTE_ADDR")
-        if not ipactive:
-            ipactive = True
+        if not netmask:
+            netmask = True
+    if isinstance(netmask, str):
+        netmask = netmask.split("/", 1)
+    if isinstance(netmask, (tuple, list)):
+        # turn mask into difference:
+        if len(netmask) == 1:
+            netmask = (0, 128 - int(netmask[0]))
+        else:
+            netmask = (32 - int(netmask[0]), 128 - int(netmask[1]))
+        assert(netmask[0] >= 0)
+        assert(netmask[1] >= 0)
+    if netmask == (32, 128):
+        netmask = True
+
     headers = list(sorted(headers))
     session_keys = list(sorted(set(config.get("SESSION", []))))
     sorted_args = set(config.get("POST", []))
@@ -40,8 +81,18 @@ def _(config):
 
     def _ret_fun(request, group):
         ret = []
-        if ipactive:
-            ret.append(request.META["REMOTE_ADDR"])
+        if netmask is True:
+            ret.append(ipaddress.ip_network(
+                request.META['REMOTE_ADDR'], strict=False
+            ).compressed)
+        elif netmask:
+            ipnet = ipaddress.ip_network(
+                request.META['REMOTE_ADDR'], strict=False
+            )
+            if ipnet.version == 4:
+                ret.append(ipnet.supernet(netmask[0]).compressed)
+            else:
+                ret.append(ipnet.supernet(netmask[1]).compressed)
         if config.get("USER") and request.user.is_authenticated:
             ret.append(str(request.user.pk))
         for arg in session_keys:

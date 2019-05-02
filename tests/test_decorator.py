@@ -20,6 +20,17 @@ class BogoView(View):
         return HttpResponse()
 
 
+class O2gView(View):
+
+    def get(self, request, *args, **kwargs):
+        request.ratelimit2 = ratelimit.get_ratelimit(
+            group=ratelimit.o2g(self.get), rate="1/s", key=b"o2gtest", inc=True
+        )
+        if request.ratelimit2["request_limit"] > 0:
+            return HttpResponse(status=400)
+        return HttpResponse()
+
+
 class DecoratorTests(TestCase):
 
     def setUp(self):
@@ -49,3 +60,13 @@ class DecoratorTests(TestCase):
             r.ratelimit["group"],
             "here_required"
         )
+        r = self.factory.get("/home")
+        v = O2gView.as_view()
+        v(r)
+        self.assertEquals(
+            r.ratelimit2["group"],
+            "%s.%s" % (O2gView.get.__module__, O2gView.get.__qualname__)
+        )
+        r = self.factory.get("/home")
+        resp = v(r)
+        self.assertEquals(resp.status_code, 400)

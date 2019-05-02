@@ -57,6 +57,7 @@ from django.utils.decorators import method_decorator
 ), name="dispatch")
 class FooView(View):
     ...
+
 ````
 
 manual
@@ -74,10 +75,41 @@ def func(request):
     ratelimit.get_ratelimit(
         key=b"abc", rate="1/s", group="123"
     )
+    # for simple naming use o2g (object to group)
+    ratelimit.get_ratelimit(
+        key=b"abc", rate="1/s", group=ratelimit.o2g(func)
+    )
 
 ````
 
+## parameters
 
+ratelimit.get_ratelimit:
+
+* group: group name, can be callable (fun(request))
+* methods: set of checked methods, can be callable (fun(request, group)), modes:
+  * callable(request, group): allow dynamic
+  * ratelimit.ALL (default): all methods are checked
+  * \("HEAD", "GET"\): list of checked methods
+  * ratelimit.invertedset(["HEAD", "GET"]): inverted set of checked methods. Here: every method is checked, except HEAD, GET
+* request: ingoing request (optional if key supports it and methods=ratelimit.ALL (default))
+* key: multiple modes possible:
+    * str: "path.to.method:argument"
+    * str: "inbuildmethod:argument" see methods for valid arguments
+    * str: "inbuildmethod"  method which is ready to use for (request, group)
+    * tuple,list: ["method", args...]: method (can be also inbuild) with arbitary arguments
+    * bytes: static key (supports no request mode)
+    * callable: check return of function (fun(request, group))
+  * cache: specify cache to use, defaults to RATELIMIT_DEFAULT_CACHE setting (default: "default")
+  * hash_algo: name of hash algorithm for creating cache_key (defaults to RATELIMIT_KEY_HASH setting (default: "sha256"))
+    Note: group is seperately hashed
+  * hashctx: optimation parameter, read the code and only use if you know what you are doing. It basically circumvents the paramater hashing and only hashes the key. If the key parameter is True even the key is skipped
+
+ratelimit.decorate:
+
+All of ratelimit.get_ratelimit except request. group is here optional (except for decorations with method_decorator (no access to wrapped function)).
+Also supports:
+* block: should hard block with an RatelimitExceeded exception (subclass of PermissionDenied) or only annotate request with ratelimit
 
 
 ## TODO

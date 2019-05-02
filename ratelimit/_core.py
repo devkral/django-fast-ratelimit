@@ -1,5 +1,5 @@
 
-__all__ = ["decorate", "get_ratelimit"]
+__all__ = ["decorate", "o2g", "get_ratelimit"]
 
 import re
 import hashlib
@@ -154,6 +154,7 @@ def get_ratelimit(
         group = group(request)
     if callable(methods):
         methods = methods(request, group)
+    assert(request or methods == ALL)
     assert(all(map(lambda x: x.isupper(), methods)))
     if request and request.method not in methods:
         return _placeholder_ret.copy()
@@ -216,6 +217,16 @@ def get_ratelimit(
     }
 
 
+def o2g(obj):
+    if isinstance(obj, functools.partial):
+        obj = obj.func
+    if getattr(obj, "__module__", None):
+        parts = [obj.__module__, obj.__qualname__]
+    else:
+        parts = [obj.__qualname__]
+    return ".".join(parts)
+
+
 def decorate(func=None, block=False, **context):
     assert(context.get("key"))
     assert(context.get("rate"))
@@ -230,21 +241,20 @@ def decorate(func=None, block=False, **context):
 
     def _decorate(fn):
         if not context.get("group"):
-            intern_fn = fn
-            if isinstance(intern_fn, functools.partial):
-                intern_fn = intern_fn.func
-            context["group"] = "%s.%s" % (
-                intern_fn.__module__, intern_fn.__qualname__
-            )
+            context["group"] = o2g(fn)
         if not callable(context["rate"]):
             # result is not callable too (tuple)
             context["rate"] = _parse_rate(context["rate"])
-        if not callable(context["methods"]):
+
+        if "hashctx" not in context and not callable(context["methods"]):
             if not isinstance(context["methods"], frozenset):
                 context["methods"] = frozenset(context["methods"])
+
             context["hashctx"] = _parse_parts(
-                context["rate"], context["methods"], context["hash_algo"]
-            )
+                context["rate"], context["methods"],
+                context["hash_algo"]
+            ).copy()
+
             if isinstance(context["key"], bytes):
                 context["hashctx"].update(context["key"])
                 context["key"] = True

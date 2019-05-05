@@ -103,13 +103,23 @@ ratelimit.get_ratelimit:
   * cache: specify cache to use, defaults to RATELIMIT_DEFAULT_CACHE setting (default: "default")
   * hash_algo: name of hash algorithm for creating cache_key (defaults to RATELIMIT_KEY_HASH setting (default: "sha256"))
     Note: group is seperately hashed
-  * hashctx: optimation parameter, read the code and only use if you know what you are doing. It basically circumvents the paramater hashing and only hashes the key. If the key parameter is True even the key is skipped
+  * hashctx: optimation parameter, read the code and only use if you know what you are doing. It basically circumvents the parameter hashing and only hashes the key. If the key parameter is True even the key is skipped
 
 ratelimit.decorate:
 
 All of ratelimit.get_ratelimit except request. group is here optional (except for decorations with method_decorator (no access to wrapped function)).
 Also supports:
 * block: should hard block with an RatelimitExceeded exception (subclass of PermissionDenied) or only annotate request with ratelimit
+
+
+## settings
+
+* RATELIMIT_GROUP_HASH: hash function which is used for the group hash (default: md5)
+* RATELIMIT_KEY_HASH: hash function which is used as default for the key hash, can be overridden with hash_algo (default: md5)
+* RATELIMIT_ENABLE disable ratelimit (e.g. for tests) (default: enabled)
+* RATELIMIT_KEY_PREFIX: internal prefix for the hash keys (so you don't have to create a new cache). Defaults to "frl:".
+* RATELIMIT_DEFAULT_CACHE: default cache to use, defaults to "default" and can be overridden by cache parameter
+
 
 
 ## TODO

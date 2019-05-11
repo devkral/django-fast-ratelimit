@@ -75,9 +75,12 @@ def func(request):
     ratelimit.get_ratelimit(
         key=b"abc", rate="1/s", group="123"
     )
+    # check constraints of rate
+    r = ratelimit.parse_rate("1/s")  # returns tuple (amount, period)
+    assert(r[1]==1)  #  assert period is 1 second
     # for simple naming use o2g (object to group)
     ratelimit.get_ratelimit(
-        key=b"abc", rate="1/s", group=ratelimit.o2g(func)
+        key=b"abc", rate=r, group=ratelimit.o2g(func)
     )
 
 ````

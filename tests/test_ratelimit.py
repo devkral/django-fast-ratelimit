@@ -9,7 +9,7 @@ from django.test import (
 
 import ratelimit
 from ratelimit._core import (
-    _retrieve_key_func, _get_cache_key, _parse_rate, _get_group_hash
+    _retrieve_key_func, _get_cache_key, parse_rate, _get_group_hash
 )
 
 
@@ -30,7 +30,7 @@ class ConstructionTests(TestCase):
         self.assertIsInstance(_retrieve_key_func("ip"), types.FunctionType)
         _retrieve_key_func("ip")(self.factory.get("/home"), "foo")
 
-    def test_parse_rate(self):
+    def testparse_rate(self):
         for rate in [
             ("1/4", (1, 4)),
             ("1/1s", (1, 1)),
@@ -41,11 +41,11 @@ class ConstructionTests(TestCase):
             ((1, 6), (1, 6)),
             ([3, 7], (3, 7))
         ]:
-            r = _parse_rate(rate[0])
+            r = parse_rate(rate[0])
             self.assertEqual(len(r), 2)
             self.assertEqual(r, rate[1])
         with self.assertRaisesRegex(ValueError, "invalid rate"):
-            _parse_rate("1")
+            parse_rate("1")
 
 
 class RatelimitTests(TransactionTestCase):

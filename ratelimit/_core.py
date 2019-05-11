@@ -1,5 +1,5 @@
 
-__all__ = ["decorate", "o2g", "get_ratelimit"]
+__all__ = ["decorate", "o2g", "parse_rate", "get_ratelimit"]
 
 import re
 import hashlib
@@ -71,11 +71,11 @@ def _parse_parts(rate: tuple, methods: frozenset, hashname: str):
 
 
 @functools.singledispatch
-def _parse_rate(rate):
+def parse_rate(rate):
     raise NotImplementedError
 
 
-@_parse_rate.register(str)
+@parse_rate.register(str)
 @functools.lru_cache()
 def _(rate):
     try:
@@ -87,14 +87,14 @@ def _(rate):
     return counter, multiplier * _PERIOD_MAP[period]
 
 
-@_parse_rate.register(list)
+@parse_rate.register(list)
 def _(rate):
     assert(len(rate) == 2)
     return tuple(rate)
 
 
-@_parse_rate.register(type(None))
-@_parse_rate.register(tuple)
+@parse_rate.register(type(None))
+@parse_rate.register(tuple)
 def _(rate):
     return rate
 
@@ -177,7 +177,7 @@ def get_ratelimit(
 
     if callable(rate):
         rate = rate(request, group)
-    rate = _parse_rate(rate)
+    rate = parse_rate(rate)
 
     if not prefix:
         prefix = getattr(settings, 'RATELIMIT_KEY_PREFIX', 'frl:')
@@ -244,7 +244,7 @@ def decorate(func=None, block=False, **context):
             context["group"] = o2g(fn)
         if not callable(context["rate"]):
             # result is not callable too (tuple)
-            context["rate"] = _parse_rate(context["rate"])
+            context["rate"] = parse_rate(context["rate"])
 
         if "hashctx" not in context and not callable(context["methods"]):
             if not isinstance(context["methods"], frozenset):

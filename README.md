@@ -120,9 +120,12 @@ Also supports:
 
 ## methods
 
-* ip: TODO
-* netmask: TODO
-
+See in methods which methods are available. Here some of them:
+* ip: use ip address as key, argument: [netmask ipv4/]netmask ipv6
+* user: authenticated user primary key or b""
+* user_or_ip: use autenticated user primary key as key. If not autenticated fallback to ip, also with netmask argument
+* user_and_ip: same like user_or_ip except that the ip matching also applies for authenticated users
+* get: generate key from multiple sources, input can be multiple input args or a dict with options
 
 ## settings
 

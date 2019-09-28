@@ -62,6 +62,7 @@ def _(config):
             netmask = True
     if isinstance(netmask, str):
         netmask = netmask.split("/", 1)
+    # netmask[0] ipv4 netmask, netmask[1] ipv6 netmask
     if isinstance(netmask, (tuple, list)):
         # turn mask into difference:
         if len(netmask) == 1:
@@ -75,42 +76,45 @@ def _(config):
 
     headers = list(sorted(headers))
     session_keys = list(sorted(set(config.get("SESSION", []))))
-    sorted_args = set(config.get("POST", []))
-    sorted_args.update(set(config.get("GET", [])))
-    sorted_args = list(sorted(sorted_args))
+    post_set = set(config.get("POST", []))
+    get_set = set(config.get("GET", []))
+    sorted_args = list(sorted(post_set | get_set))
+    check_user = config.get("USER", False)
+    assert isinstance(check_user, bool), "USER is only boolean"
 
-    def _ret_fun(request, group):
-        ret = []
+    def _generate_key(request):
         if netmask is True:
-            ret.append(ipaddress.ip_network(
+            yield ipaddress.ip_network(
                 request.META['REMOTE_ADDR'], strict=False
-            ).compressed)
+            ).compressed
         elif netmask:
             ipnet = ipaddress.ip_network(
                 request.META['REMOTE_ADDR'], strict=False
             )
             if ipnet.version == 4:
-                ret.append(ipnet.supernet(netmask[0]).compressed)
+                yield ipnet.supernet(netmask[0]).compressed
             else:
-                ret.append(ipnet.supernet(netmask[1]).compressed)
-        if config.get("USER") and request.user.is_authenticated:
-            ret.append(str(request.user.pk))
+                yield ipnet.supernet(netmask[1]).compressed
+        if check_user and request.user.is_authenticated:
+            str(request.user.pk)
         for arg in session_keys:
             if arg is None:
                 if request.session.session_key:
-                    ret.append(request.session.session_key)
+                    yield request.session.session_key
             elif arg in request.session:
-                ret.append(request.session[arg])
+                yield request.session[arg]
         for arg in headers:
             if arg in request.META:
-                ret.append(request.META[arg])
+                yield request.META[arg]
         for arg in sorted_args:
-            if arg in request.POST:
-                ret.append(request.POST[arg])
-            if arg in request.GET:
-                ret.append(request.GET[arg])
-        return "".join(ret)
-    return _ret_fun
+            if arg in post_set:
+                # empty values will be ignored
+                yield request.POST.get(arg, "")
+            if arg in get_set:
+                # empty values will be ignored
+                yield request.GET.get(arg, "")
+
+    return lambda request, group: "".join(_generate_key(request))
 
 
 @get.register(str)
@@ -124,13 +128,17 @@ def _(*args):
         "POST": []
     }
     for arg in args:
+        # split argument in list
         s = arg if isinstance(arg, (tuple, list)) else str(arg).split(":", 1)
         uppername = s[0].upper()
-        s = s[1] if len(s) > 1 else None
+        value = s[1] if len(s) > 1 else None
         if uppername in {"IP", "USER"}:
-            g[uppername] = True if s is None else s
-        elif s:
-            g[uppername].append(s)
+            g[uppername] = True if value is None else value
+        elif uppername == "SESSION":
+            # can be None
+            g[uppername].append(value)
+        elif value:
+            g[uppername].append(value)
     return get(g)
 
 

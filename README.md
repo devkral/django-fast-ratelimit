@@ -97,12 +97,15 @@ ratelimit.get_ratelimit:
   * ratelimit.invertedset(["HEAD", "GET"]): inverted set of checked methods. Here: every method is checked, except HEAD, GET
 * request: ingoing request (optional if key supports it and methods=ratelimit.ALL (default))
 * key: multiple modes possible:
+    * bool: True: skip key (should only be used for baking), False: disable cache (like RATELIMIT_ENABLE=False)
+    * int:  sidestep cache, value will be used for request_limit. 0 is for never blocking, >=1 blocks
     * str: "path.to.method:argument"
     * str: "inbuildmethod:argument" see methods for valid arguments
     * str: "inbuildmethod"  method which is ready to use for (request, group)
     * tuple,list: ["method", args...]: method (can be also inbuild) with arbitary arguments
-    * bytes: static key (supports no request mode)
-    * callable: check return of function (fun(request, group))
+    * bytes: static key (supports mode without request)
+    * callable: check return of function (fun(request, group)), return must be string (converted to bytes), bytes, bool or int (see "key" for effects)
+  * empty_to: convert empty keys (b"") to parameter. Must be bytes, bool or int (see "key" for effects) (default: keep b"")
   * cache: specify cache to use, defaults to RATELIMIT_DEFAULT_CACHE setting (default: "default")
   * hash_algo: name of hash algorithm for creating cache_key (defaults to RATELIMIT_KEY_HASH setting (default: "sha256"))
     Note: group is seperately hashed
@@ -115,6 +118,12 @@ Also supports:
 * block: should hard block with an RatelimitExceeded exception (subclass of PermissionDenied) or only annotate request with ratelimit
 
 
+## methods
+
+* ip: TODO
+* netmask: TODO
+
+
 ## settings
 
 * RATELIMIT_GROUP_HASH: hash function which is used for the group hash (default: md5)
@@ -122,7 +131,6 @@ Also supports:
 * RATELIMIT_ENABLE disable ratelimit (e.g. for tests) (default: enabled)
 * RATELIMIT_KEY_PREFIX: internal prefix for the hash keys (so you don't have to create a new cache). Defaults to "frl:".
 * RATELIMIT_DEFAULT_CACHE: default cache to use, defaults to "default" and can be overridden by cache parameter
-
 
 
 ## TODO

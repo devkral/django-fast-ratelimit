@@ -3,6 +3,7 @@ import hashlib
 import types
 import time
 
+from django.contrib.auth.models import AnonymousUser
 from django.test import (
     TestCase, TransactionTestCase, RequestFactory, override_settings
 )
@@ -74,6 +75,25 @@ class RatelimitTests(TransactionTestCase):
         r = ratelimit.get_ratelimit(
             group="foo", rate="1/s", key=b"abc2", inc=True
         )
+        self.assertEqual(r["request_limit"], 0)
+
+    def test_block_empty(self):
+        request = self.factory.get('/customer/details')
+        request.user = AnonymousUser()
+        r = ratelimit.get_ratelimit(
+            group="foo", rate="1/s", key="user", request=request, empty_to=1
+        )
+        self.assertEqual(r["request_limit"], 1)
+
+    def test_bypass_empty(self):
+        r = None
+        request = self.factory.get('/customer/details')
+        request.user = AnonymousUser()
+        for i in range(0, 4):
+            r = ratelimit.get_ratelimit(
+                group="foo", rate="1/s", key="user",
+                request=request, empty_to=0
+            )
         self.assertEqual(r["request_limit"], 0)
 
     def test_request(self):

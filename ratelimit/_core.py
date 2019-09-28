@@ -148,14 +148,17 @@ def _(key):
 
 def get_ratelimit(
     group, key, rate, *, request=None, methods=ALL, inc=False,
-    prefix=None, cache=None, hash_algo=None, hashctx=None
+    prefix=None, empty_to=b"",
+    cache=None, hash_algo=None, hashctx=None
 ):
     if callable(group):
         group = group(request)
     if callable(methods):
         methods = methods(request, group)
-    assert(request or methods == ALL)
-    assert(all(map(lambda x: x.isupper(), methods)))
+    assert request or methods == ALL, "error: no request but methods is not ALL"  # noqa: E501
+    assert all(map(lambda x: x.isupper(), methods)), "error: method lowercase"
+    assert isinstance(empty_to, (bool, bytes, int)), "invalid type: %s" % type(empty_to)  # noqa: E501
+    # shortcut allow
     if request and request.method not in methods:
         return _placeholder_ret.copy()
     if isinstance(methods, str):
@@ -170,14 +173,25 @@ def get_ratelimit(
         key = key(request, group)
         if isinstance(key, str):
             key = key.encode("utf8")
+    if key == b"":
+        key = empty_to
 
-    assert(isinstance(key, (bytes, bool)))
+    assert isinstance(key, (bytes, bool, int))
+    # shortcuts for disabling ratelimit
     if key is False or not getattr(settings, "RATELIMIT_ENABLE", True):
         return _placeholder_ret.copy()
 
     if callable(rate):
         rate = rate(request, group)
     rate = parse_rate(rate)
+
+    # sidestep cache
+    if isinstance(key, int):
+        ret = _placeholder_ret.copy()
+        ret["group"] = group
+        ret["limit"] = rate[0]
+        ret["request_limit"] = key
+        return ret
 
     if not prefix:
         prefix = getattr(settings, 'RATELIMIT_KEY_PREFIX', 'frl:')
@@ -228,10 +242,10 @@ def o2g(obj):
 
 
 def decorate(func=None, block=False, **context):
-    assert(context.get("key"))
-    assert(context.get("rate"))
-    assert("request" not in context)
-    assert("inc" not in context)
+    assert context.get("key")
+    assert context.get("rate")
+    assert "request" not in context
+    assert "inc" not in context
     if "methods" not in context:
         context["methods"] = ALL
     if "hash_algo" not in context:

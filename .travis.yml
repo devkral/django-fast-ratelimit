@@ -5,6 +5,7 @@ python:
   - "3.5"
   - "3.6"
   - "3.7"
+  - "3.8"
 branches:
   only:
   - master
@@ -25,6 +26,8 @@ matrix:
     - python: "3.6"
       env: DJANGO_DEP="git+https://github.com/django/django.git"
     - python: "3.7"
+      env: DJANGO_DEP="git+https://github.com/django/django.git"
+    - python: "3.8"
       env: DJANGO_DEP="git+https://github.com/django/django.git"
 install:
   - pip install poetry

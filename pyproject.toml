@@ -7,6 +7,11 @@ authors = ["Alexander Kaftan"]
 readme = "README.md"
 repository = "https://https://github.com/devkral/django-fast-ratelimit"
 classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Environment :: Web Environment",
+  "Framework :: Django",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3 :: Only"
 ]
 packages = [
   { include = "ratelimit" },

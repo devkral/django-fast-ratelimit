@@ -2,6 +2,9 @@
 
 
 Django-fast-ratelimit provides a secure and fast ratelimit facility based on the django caching framework.
+It uses a "Fixed window counter"-algorithm based on:
+https://medium.com/figma-design/an-alternative-approach-to-rate-limiting-f8a06cf7c94c
+
 
 
 ## Installation
@@ -117,6 +120,9 @@ All of ratelimit.get_ratelimit except request. group is here optional (except fo
 Also supports:
 * block: should hard block with an RatelimitExceeded exception (subclass of PermissionDenied) or only annotate request with ratelimit
 
+## helpers
+
+* ratelimit.invertedset: inverts a collection, useful for http methods
 
 ## methods
 

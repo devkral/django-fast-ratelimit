@@ -57,23 +57,45 @@ class RatelimitTests(TransactionTestCase):
     def test_basic(self):
         r = None
         for i in range(0, 4):
+            # just view, without retrieving
             r = ratelimit.get_ratelimit(
-                group="foo", rate="1/s", key=b"abc"
+                group="test_basic", rate="1/s", key=b"abc"
             )
             self.assertEqual(r["request_limit"], 0)
 
         for i in range(0, 2):
             r = ratelimit.get_ratelimit(
-                group="foo", rate="1/s", key=b"abc2", inc=True
+                group="test_basic", rate="1/s", key=b"abc2", inc=True
             )
         self.assertEqual(r["request_limit"], 1)
         r = ratelimit.get_ratelimit(
-            group="foo", rate="1/s", key=b"abc2", inc=True
+            group="test_basic", rate="1/s", key=b"abc2", inc=True
         )
         self.assertEqual(r["request_limit"], 1)
         time.sleep(2)
         r = ratelimit.get_ratelimit(
-            group="foo", rate="1/s", key=b"abc2", inc=True
+            group="test_basic", rate="1/s", key=b"abc2", inc=True
+        )
+        self.assertEqual(r["request_limit"], 0)
+
+    def test_window(self):
+        # window should start with first inc and end after period
+        # (fixed window counter algorithm)
+        r = None
+        for i in range(0, 2):
+            r = ratelimit.get_ratelimit(
+                group="test_window", rate="2/4s", key=b"abc", inc=True
+            )
+            self.assertEqual(r["request_limit"], 0)
+            time.sleep(1)
+        r = ratelimit.get_ratelimit(
+            group="test_window", rate="2/4s", key=b"abc", inc=True
+        )
+        self.assertEqual(r["request_limit"], 1)
+        # window times out
+        time.sleep(3)
+        r = ratelimit.get_ratelimit(
+            group="test_window", rate="2/4s", key=b"abc", inc=True
         )
         self.assertEqual(r["request_limit"], 0)
 
@@ -81,9 +103,10 @@ class RatelimitTests(TransactionTestCase):
         request = self.factory.get('/customer/details')
         request.user = AnonymousUser()
         r = ratelimit.get_ratelimit(
-            group="foo", rate="1/s", key="user", request=request, empty_to=1
+            group="test_block_empty", rate="1/s", key="user",
+            request=request, empty_to=123
         )
-        self.assertEqual(r["request_limit"], 1)
+        self.assertEqual(r["request_limit"], 123)
 
     def test_bypass_empty(self):
         r = None
@@ -91,7 +114,7 @@ class RatelimitTests(TransactionTestCase):
         request.user = AnonymousUser()
         for i in range(0, 4):
             r = ratelimit.get_ratelimit(
-                group="foo", rate="1/s", key="user",
+                group="test_bypass_empty", rate="1/s", key="user",
                 request=request, empty_to=0
             )
         self.assertEqual(r["request_limit"], 0)
@@ -101,18 +124,19 @@ class RatelimitTests(TransactionTestCase):
         request = self.factory.get('/customer/details')
         for i in range(0, 4):
             r = ratelimit.get_ratelimit(
-                group="foo", rate="1/s", key="ip", request=request
+                group="test_request", rate="1/s", key="ip", request=request
             )
             self.assertEqual(r["request_limit"], 0)
 
         for i in range(0, 2):
             r = ratelimit.get_ratelimit(
-                group="foo", rate="1/s", key="ip:32/64", inc=True,
+                group="test_request", rate="1/s", key="ip:32/64", inc=True,
                 request=request
             )
         self.assertEqual(r["request_limit"], 1)
         r = ratelimit.get_ratelimit(
-            group="foo", rate="1/s", key="ip", inc=True, request=request
+            group="test_request", rate="1/s", key="ip", inc=True,
+            request=request
         )
         self.assertEqual(r["request_limit"], 1)
 
@@ -121,27 +145,27 @@ class RatelimitTests(TransactionTestCase):
         request = self.factory.get('/customer/details')
         for i in range(0, 4):
             r = ratelimit.get_ratelimit(
-                group="abasd", rate="1/s", key="ip", request=request, inc=True,
-                methods=["POST"]
+                group="test_request_post_get_filter", rate="1/s", key="ip",
+                request=request, inc=True, methods=["POST"]
             )
             self.assertEqual(r["request_limit"], 0)
 
         for i in range(0, 2):
             r = ratelimit.get_ratelimit(
-                group="abasd", rate="1/s", key="ip:32/64", inc=True,
-                request=request, methods=["GET"]
+                group="test_request_post_get_filter", rate="1/s",
+                key="ip:32/64", inc=True, request=request, methods=["GET"]
             )
         self.assertEqual(r["request_limit"], 1)
         r = ratelimit.get_ratelimit(
-            group="abasd", rate="1/s", key="ip", inc=True, request=request,
-            methods=["GET"]
+            group="test_request_post_get_filter", rate="1/s", key="ip",
+            inc=True, request=request, methods=["GET"]
         )
         self.assertEqual(r["request_limit"], 1)
 
     def test_inverted(self):
         request = self.factory.get('/customer/details')
         r = ratelimit.get_ratelimit(
-            group="zafaiusl", rate="1/s", key="ip:32/64", inc=True,
+            group="test_inverted", rate="1/s", key="ip:32/64", inc=True,
             request=request, methods=ratelimit.invertedset(["GET"])
         )
         self.assertEqual(r["count"], 0)
@@ -156,18 +180,20 @@ class RatelimitTests(TransactionTestCase):
                     r = None
                     for i in range(0, 4):
                         r = ratelimit.get_ratelimit(
-                            group="foo", rate="1/s", key=b"implicittest"
+                            group="test_backends", rate="1/s",
+                            key=b"implicittest"
                         )
                         self.assertEqual(r["request_limit"], 0)
 
                     for i in range(0, 2):
                         r = ratelimit.get_ratelimit(
-                            group="foo", rate="1/s", key=b"implicittest",
-                            inc=True
+                            group="test_backends", rate="1/s",
+                            key=b"implicittest", inc=True
                         )
                     self.assertEqual(r["request_limit"], 1)
                     r = ratelimit.get_ratelimit(
-                        group="foo", rate="1/s", key=b"implicittest", inc=True
+                        group="test_backends", rate="1/s", key=b"implicittest",
+                        inc=True
                     )
                     self.assertEqual(r["request_limit"], 1)
             _get_group_hash.cache_clear()
@@ -181,20 +207,20 @@ class RatelimitTests(TransactionTestCase):
                     r = None
                     for i in range(0, 4):
                         r = ratelimit.get_ratelimit(
-                            group="foo", rate="1/s", key=b"explicittest",
-                            cache=cache
+                            group="test_backends", rate="1/s",
+                            key=b"explicittest", cache=cache
                         )
                         self.assertEqual(r["request_limit"], 0)
 
                     for i in range(0, 2):
                         r = ratelimit.get_ratelimit(
-                            group="foo", rate="1/s", key=b"explicittest",
-                            inc=True, cache=cache
+                            group="test_backends", rate="1/s",
+                            key=b"explicittest", inc=True, cache=cache
                         )
                     self.assertEqual(r["request_limit"], 1)
                     r = ratelimit.get_ratelimit(
-                        group="foo", rate="1/s", key=b"explicittest", inc=True,
-                        cache=cache
+                        group="test_backends", rate="1/s",
+                        key=b"explicittest", inc=True, cache=cache
                     )
                     self.assertEqual(r["request_limit"], 1)
             _get_group_hash.cache_clear()

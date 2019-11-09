@@ -151,6 +151,27 @@ def get_ratelimit(
     prefix=None, empty_to=b"",
     cache=None, hash_algo=None, hashctx=None
 ):
+    """
+    Get ratelimit information
+
+    Arguments:
+        group {str|callable} -- [group name or callable (fun(request))]
+        key {multiple} -- see Readme
+        rate {multiple} -- see Readme
+
+    Keyword Arguments:
+        request {request|None} -- django request (default: {None})
+        methods {collection} -- affecte http operations (default: {ALL})
+        inc {bool} -- False: only peek, True count up (default: {False})
+        prefix {str} -- cache-prefix (default: {in settings configured})
+        empty_to {bytes|int} -- default if key returns None (default: {b""})
+        cache {str} -- cache name (default: {None})
+        hash_algo {str} -- Hash algorithm for key (default: {None})
+        hashctx {hash_context} -- see README (default: {None})
+
+    Returns:
+        dict -- ratelimit state as dict
+    """
     if callable(group):
         group = group(request)
     if callable(methods):
@@ -209,12 +230,14 @@ def get_ratelimit(
             hashctx.update(key)
     cache_key = _get_cache_key(group, hashctx, prefix)
 
+    # use a fixed window counter algorithm
     if inc:
         # start with 1 (as if increased)
         if cache.add(cache_key, 1, rate[1]):
             count = 1
         else:
             try:
+                # incr does not extend cache duration
                 count = cache.incr(cache_key)
             except ValueError:
                 count = None

@@ -4,6 +4,9 @@ from django.core.exceptions import PermissionDenied
 
 
 class invertedset(frozenset):
+    """
+    Inverts a collection
+    """
     def __contains__(self, item):
         return not super().__contains__(item)
 

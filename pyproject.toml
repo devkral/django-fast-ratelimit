@@ -5,7 +5,7 @@ version = "0.5.0.2"
 license = "MIT"
 authors = ["Alexander Kaftan"]
 readme = "README.md"
-repository = "https://https://github.com/devkral/django-fast-ratelimit"
+repository = "https://github.com/devkral/django-fast-ratelimit"
 classifiers = [
   "Development Status :: 5 - Production/Stable",
   "Environment :: Web Environment",

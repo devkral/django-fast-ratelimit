@@ -4,6 +4,8 @@ python:
   - "3.6"
   - "3.7"
   - "3.8"
+  - "3.9"
+  - "3.10"
 branches:
   only:
   - master
@@ -12,9 +14,8 @@ env:
     - DJANGO_SETTINGS_MODULE=test_settings
     - PYTHONPATH="."
   matrix:
-    - DJANGO_DEP="django==2.2"
-    - DJANGO_DEP="django==3.0"
-    - DJANGO_DEP="django==3.1"
+    - DJANGO_DEP="django==3.2"
+    - DJANGO_DEP="django==4.0"
     - DJANGO_DEP="git+https://github.com/django/django.git"
 matrix:
   allow_failures:

@@ -51,6 +51,9 @@ class DecoratorTests(TestCase):
         with self.assertRaises(ratelimit.RatelimitExceeded):
             r = self.factory.get("/home")
             func(r)
+        r.ratelimit.reset()
+        r = self.factory.get("/home")
+        func(r)
 
     def test_view(self):
         r = self.factory.get("/home")

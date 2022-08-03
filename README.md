@@ -160,4 +160,3 @@ See in methods which methods are available. Here some of them:
 ## TODO
 
 * more documentation
-* reset method

@@ -113,14 +113,17 @@ def func(request):
   * hash_algo: name of hash algorithm for creating cache_key (defaults to RATELIMIT_KEY_HASH setting (default: "sha256"))
     Note: group is seperately hashed
   * hashctx: optimation parameter, read the code and only use if you know what you are doing. It basically circumvents the parameter hashing and only hashes the key. If the key parameter is True even the key is skipped
-* inc: increases cache counter (default False just peek)
+  * action {ratelimit.Action}:
+    *  PEEK: only lookup
+    *  INCREASE: count up and return result
+    *  RESET: return former result and reset (default: {PEEK})
 
 returns following dict
 
 * count: how often in the window the ip whatever was calling
 * limit: limit when it should block
-* request_limit: 1: should block or reject, 0: should accept
-* end: when does the window end (note: it can change if new requests are inserted in the bucket)
+* request_limit: >=1 should block or reject, 0: should accept
+* end: when does the block end
 * group: group name
 
 

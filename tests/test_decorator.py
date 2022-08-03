@@ -26,6 +26,7 @@ class O2gView(View):
             rate="1/s",
             key=b"o2gtest",
             action=ratelimit.Action.INCREASE,
+            include_reset=True,
         )
         if request.ratelimit2.request_limit > 0:
             return HttpResponse(status=400)
@@ -46,6 +47,7 @@ class DecoratorTests(TestCase):
         self.assertEquals(
             r.ratelimit.group, "tests.test_decorator.func_beautyname"
         )
+        self.assertTrue(callable(r.ratelimit.reset))
         with self.assertRaises(ratelimit.RatelimitExceeded):
             r = self.factory.get("/home")
             func(r)
@@ -61,6 +63,7 @@ class DecoratorTests(TestCase):
             r.ratelimit2.group,
             "%s.%s" % (O2gView.get.__module__, O2gView.get.__qualname__),
         )
+        self.assertTrue(callable(r.ratelimit2.reset))
         r = self.factory.get("/home")
         resp = v(r)
         self.assertEquals(resp.status_code, 400)

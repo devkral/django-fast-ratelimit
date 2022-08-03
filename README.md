@@ -117,6 +117,7 @@ def func(request):
     *  PEEK: only lookup
     *  INCREASE: count up and return result
     *  RESET: return former result and reset (default: {PEEK})
+  * include_reset: add reset method to Ratelimit object if no cache bypass is in use
 
 returns following dict
 

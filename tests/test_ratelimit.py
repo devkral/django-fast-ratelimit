@@ -75,6 +75,7 @@ class RatelimitTests(TransactionTestCase):
                 action=ratelimit.Action.INCREASE,
             )
         self.assertEqual(r.request_limit, 1)
+        self.assertEqual(r.count, 2)
         r = ratelimit.get_ratelimit(
             group="test_basic",
             rate="1/s",
@@ -90,6 +91,58 @@ class RatelimitTests(TransactionTestCase):
             action=ratelimit.Action.INCREASE,
         )
         self.assertEqual(r.request_limit, 0)
+
+    def test_reset(self):
+        for i in range(0, 2):
+            r = ratelimit.get_ratelimit(
+                group="test_reset",
+                rate="1/s",
+                key=b"abc2",
+                action=ratelimit.Action.INCREASE,
+                include_reset=True,
+            )
+        self.assertEqual(r.request_limit, 1)
+        self.assertEqual(r.count, 2)
+        r = ratelimit.get_ratelimit(
+            group="test_reset",
+            rate="1/s",
+            key=b"abc2",
+            action=ratelimit.Action.RESET,
+            include_reset=True,
+        )
+        self.assertEqual(r.request_limit, 1)
+        self.assertEqual(r.count, 2)
+        r = ratelimit.get_ratelimit(
+            group="test_reset",
+            rate="1/s",
+            key=b"abc2",
+            action=ratelimit.Action.INCREASE,
+            include_reset=True,
+        )
+        self.assertEqual(r.request_limit, 0)
+        self.assertEqual(r.count, 1)
+
+    def test_reset_fn(self):
+        for i in range(0, 2):
+            r = ratelimit.get_ratelimit(
+                group="test_reset_fn",
+                rate="1/s",
+                key=b"abc2",
+                action=ratelimit.Action.INCREASE,
+                include_reset=True,
+            )
+        self.assertEqual(r.request_limit, 1)
+        self.assertEqual(r.count, 2)
+        r.reset()
+        r = ratelimit.get_ratelimit(
+            group="test_reset_fn",
+            rate="1/s",
+            key=b"abc2",
+            action=ratelimit.Action.INCREASE,
+            include_reset=True,
+        )
+        self.assertEqual(r.request_limit, 0)
+        self.assertEqual(r.count, 1)
 
     def test_window(self):
         # window should start with first INCREASE and end after period

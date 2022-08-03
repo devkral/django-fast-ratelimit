@@ -30,7 +30,7 @@ class Ratelimit:
     request_limit: int = 0
     end: Union[float, int] = inf
     group: Optional[str] = None
-    reset_cache: Optional[Callable[[], None]] = field(
+    reset: Optional[Callable[[], None]] = field(
         default=None, repr=False, compare=False, hash=False
     )
 

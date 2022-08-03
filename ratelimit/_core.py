@@ -165,7 +165,7 @@ def get_ratelimit(
     cache: Optional[str] = None,
     hash_algo: Optional[str] = None,
     hashctx: Optional[Any] = None,
-    include_reset_cache: bool = False
+    include_reset: bool = False
 ):
     """
     Get ratelimit information
@@ -187,9 +187,11 @@ def get_ratelimit(
         cache {str} -- cache name (default: {None})
         hash_algo {str} -- Hash algorithm for key (default: {None})
         hashctx {hash_context} -- see README (default: {None})
+        include_reset {bool} --
+            add reset cache method if cache is in use (default: {False})
 
     Returns:
-        dict -- ratelimit state as dict
+        ratelimit.Ratelimit -- ratelimit object
     """
     if callable(group):
         group = group(request)
@@ -271,9 +273,7 @@ def get_ratelimit(
         request_limit=1 if count is None or count > rate[0] else 0,
         end=int(time.time()) + rate[1],
         group=group,
-        reset_cache=lambda: cache.delete(cache_key)
-        if include_reset_cache
-        else None,
+        reset=lambda: cache.delete(cache_key) if include_reset else None,
     )
 
 
@@ -325,7 +325,7 @@ def decorate(func=None, block=False, **context):
             nrlimit = get_ratelimit(
                 request=request,
                 action=Action.INCREASE,
-                include_reset_cache=True,
+                include_reset=True,
                 **context
             )
             if block and nrlimit.request_limit > 0:

@@ -14,7 +14,7 @@ pip install django-fast-ratelimit
 
 ````
 
-Note: pip >= 19 is required, I use the novel pyproject.toml method
+Note: pip >= 19 is required
 
 ## usage
 
@@ -90,7 +90,7 @@ def func(request):
 
 ## parameters
 
-ratelimit.get_ratelimit:
+### ratelimit.get_ratelimit:
 
 * group: group name, can be callable (fun(request))
 * methods: set of checked methods, can be callable (fun(request, group)), modes:
@@ -113,8 +113,18 @@ ratelimit.get_ratelimit:
   * hash_algo: name of hash algorithm for creating cache_key (defaults to RATELIMIT_KEY_HASH setting (default: "sha256"))
     Note: group is seperately hashed
   * hashctx: optimation parameter, read the code and only use if you know what you are doing. It basically circumvents the parameter hashing and only hashes the key. If the key parameter is True even the key is skipped
+* inc: increases cache counter (default False just peek)
 
-ratelimit.decorate:
+returns following dict
+
+* count: how often in the window the ip whatever was calling
+* limit: limit when it should block
+* request_limit: 1: should block or reject, 0: should accept
+* end: when does the window end (note: it can change if new requests are inserted in the bucket)
+* group: group name
+
+
+### ratelimit.decorate:
 
 All of ratelimit.get_ratelimit except request. group is here optional (except for decorations with method_decorator (no access to wrapped function)).
 Also supports:
@@ -123,6 +133,7 @@ Also supports:
 ## helpers
 
 * ratelimit.invertedset: inverts a collection, useful for http methods
+* ratelimit.o2g: auto generate group names
 
 ## methods
 
@@ -145,3 +156,4 @@ See in methods which methods are available. Here some of them:
 ## TODO
 
 * more documentation
+* reset method

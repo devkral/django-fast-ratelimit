@@ -1,4 +1,3 @@
-
 __all__ = ["decorate", "o2g", "parse_rate", "get_ratelimit"]
 
 import re
@@ -16,16 +15,16 @@ from django.utils.module_loading import import_string
 from .misc import invertedset, ALL, RatelimitExceeded
 from . import methods as rlimit_methods
 
-_rate = re.compile(r'(\d+)/(\d+)?([smhdw])?')
+_rate = re.compile(r"(\d+)/(\d+)?([smhdw])?")
 
 
 _PERIOD_MAP = {
-    None: 1,     # second, falllback
-    's': 1,      # second
-    'm': 60,     # minute
-    'h': 3600,   # hour
-    'd': 86400,  # day
-    'w': 604800  # week
+    None: 1,  # second, falllback
+    "s": 1,  # second
+    "m": 60,  # minute
+    "h": 3600,  # hour
+    "d": 86400,  # day
+    "w": 604800,  # week
 }
 
 
@@ -34,24 +33,26 @@ _placeholder_ret = {
     "limit": inf,
     "request_limit": 0,
     "time_left": inf,
-    "group": None
+    "group": None,
 }
 
 
 # clear if you test multiple RATELIMIT_GROUP_HASH definitions
 @functools.lru_cache()
 def _get_group_hash(group: str) -> str:
-    return base64.b85encode(hashlib.new(
-        getattr(settings, "RATELIMIT_GROUP_HASH", "md5"),
-        group.encode("utf-8")
-    ).digest()).decode("ascii")
+    return base64.b85encode(
+        hashlib.new(
+            getattr(settings, "RATELIMIT_GROUP_HASH", "md5"),
+            group.encode("utf-8"),
+        ).digest()
+    ).decode("ascii")
 
 
 def _get_cache_key(group: str, hashctx, prefix: str):
     return "%(prefix)s%(group)s:%(parts)s" % {
         "prefix": prefix,
         "group": _get_group_hash(group),
-        "parts": base64.b85encode(hashctx.digest()).decode("ascii")
+        "parts": base64.b85encode(hashctx.digest()).decode("ascii"),
     }
 
 
@@ -89,7 +90,7 @@ def _(rate):
 
 @parse_rate.register(list)
 def _(rate):
-    assert(len(rate) == 2)
+    assert len(rate) == 2
     return tuple(rate)
 
 
@@ -147,9 +148,18 @@ def _(key):
 
 
 def get_ratelimit(
-    group, key, rate, *, request=None, methods=ALL, inc=False,
-    prefix=None, empty_to=b"",
-    cache=None, hash_algo=None, hashctx=None
+    group,
+    key,
+    rate,
+    *,
+    request=None,
+    methods=ALL,
+    inc=False,
+    prefix=None,
+    empty_to=b"",
+    cache=None,
+    hash_algo=None,
+    hashctx=None,
 ):
     """
     Get ratelimit information
@@ -176,9 +186,13 @@ def get_ratelimit(
         group = group(request)
     if callable(methods):
         methods = methods(request, group)
-    assert request or methods == ALL, "error: no request but methods is not ALL"  # noqa: E501
+    assert (
+        request or methods == ALL
+    ), "error: no request but methods is not ALL"  # noqa: E501
     assert all(map(lambda x: x.isupper(), methods)), "error: method lowercase"
-    assert isinstance(empty_to, (bool, bytes, int)), "invalid type: %s" % type(empty_to)  # noqa: E501
+    assert isinstance(empty_to, (bool, bytes, int)), "invalid type: %s" % type(
+        empty_to
+    )  # noqa: E501
     # shortcut allow
     if request and request.method not in methods:
         return _placeholder_ret.copy()
@@ -215,9 +229,9 @@ def get_ratelimit(
         return ret
 
     if not prefix:
-        prefix = getattr(settings, 'RATELIMIT_KEY_PREFIX', 'frl:')
+        prefix = getattr(settings, "RATELIMIT_KEY_PREFIX", "frl:")
     if not cache:
-        cache = getattr(settings, 'RATELIMIT_DEFAULT_CACHE', 'default')
+        cache = getattr(settings, "RATELIMIT_DEFAULT_CACHE", "default")
     if isinstance(cache, str):
         cache = caches[cache]
 
@@ -250,7 +264,7 @@ def get_ratelimit(
         # how many ratelimits request limit
         "request_limit": 1 if count is None or count > rate[0] else 0,
         "end": int(time.time()) + rate[1],
-        "group": group
+        "group": group,
     }
 
 
@@ -288,8 +302,7 @@ def decorate(func=None, block=False, **context):
                 context["methods"] = frozenset(context["methods"])
 
             context["hashctx"] = _parse_parts(
-                context["rate"], context["methods"],
-                context["hash_algo"]
+                context["rate"], context["methods"], context["hash_algo"]
             ).copy()
 
             if isinstance(context["key"], bytes):
@@ -300,17 +313,14 @@ def decorate(func=None, block=False, **context):
 
         @functools.wraps(fn)
         def _wrapper(request, *args, **kwargs):
-            nrlimit = get_ratelimit(
-                request=request, inc=True, **context
-            )
+            nrlimit = get_ratelimit(request=request, inc=True, **context)
             if block and nrlimit["request_limit"] > 0:
                 raise RatelimitExceeded(nrlimit)
             oldrlimit = getattr(request, "ratelimit", None)
             if not oldrlimit:
                 setattr(request, "ratelimit", nrlimit)
-            elif (
-                bool(oldrlimit["request_limit"]) !=
-                bool(nrlimit["request_limit"])
+            elif bool(oldrlimit["request_limit"]) != bool(
+                nrlimit["request_limit"]
             ):
                 if nrlimit["request_limit"]:
                     setattr(request, "ratelimit", nrlimit)
@@ -320,7 +330,9 @@ def decorate(func=None, block=False, **context):
             else:
                 oldrlimit["request_limit"] += nrlimit["request_limit"]
             return fn(request, *args, **kwargs)
+
         return _wrapper
+
     if func:
         return _decorate(func)
     return _decorate

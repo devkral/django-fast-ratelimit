@@ -10,7 +10,7 @@ def user_or_ip(request, group):
     if request.user.is_authenticated:
         return str(request.user.pk)
     return ipaddress.ip_network(
-        request.META['REMOTE_ADDR'], strict=False
+        request.META["REMOTE_ADDR"], strict=False
     ).compressed
 
 
@@ -28,21 +28,20 @@ def _(netmask):
 @user_or_ip.register(tuple)
 def _(netmask):
     netmask = (32 - int(netmask[0]), 128 - int(netmask[1]))
-    assert(netmask[0] >= 0)
-    assert(netmask[1] >= 0)
+    assert netmask[0] >= 0
+    assert netmask[1] >= 0
     if netmask == (32, 128):
         return user_or_ip.dispatch(HttpRequest)
 
     def _(request, group):
         if request.user.is_authenticated:
             return str(request.user.pk)
-        ipnet = ipaddress.ip_network(
-            request.META['REMOTE_ADDR'], strict=False
-        )
+        ipnet = ipaddress.ip_network(request.META["REMOTE_ADDR"], strict=False)
         if ipnet.version == 4:
             return ipnet.supernet(netmask[0]).compressed
         else:
             return ipnet.supernet(netmask[1]).compressed
+
     return _
 
 
@@ -69,8 +68,8 @@ def _(config):
             netmask = (0, 128 - int(netmask[0]))
         else:
             netmask = (32 - int(netmask[0]), 128 - int(netmask[1]))
-        assert(netmask[0] >= 0)
-        assert(netmask[1] >= 0)
+        assert netmask[0] >= 0
+        assert netmask[1] >= 0
     if netmask == (32, 128):
         netmask = True
 
@@ -85,11 +84,11 @@ def _(config):
     def _generate_key(request):
         if netmask is True:
             yield ipaddress.ip_network(
-                request.META['REMOTE_ADDR'], strict=False
+                request.META["REMOTE_ADDR"], strict=False
             ).compressed
         elif netmask:
             ipnet = ipaddress.ip_network(
-                request.META['REMOTE_ADDR'], strict=False
+                request.META["REMOTE_ADDR"], strict=False
             )
             if ipnet.version == 4:
                 yield ipnet.supernet(netmask[0]).compressed
@@ -125,7 +124,7 @@ def _(*args):
         "SESSION": False,
         "HEADER": [],
         "GET": [],
-        "POST": []
+        "POST": [],
     }
     for arg in args:
         # split argument in list

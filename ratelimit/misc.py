@@ -7,6 +7,7 @@ __all__ = [
     "RatelimitExceeded",
 ]
 
+import sys
 from enum import Enum
 from math import inf
 from dataclasses import dataclass, field
@@ -23,7 +24,12 @@ class Action(Enum):
     RESET = 3
 
 
-@dataclass(slots=True)
+_deco_options = {}
+if sys.version_info >= (3, 10):
+    _deco_options["slots"] = True
+
+
+@dataclass(**_deco_options)
 class Ratelimit:
     count: int = 0
     limit: Union[float, int] = inf

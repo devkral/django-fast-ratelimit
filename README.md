@@ -126,6 +126,7 @@ returns following dict
 * request_limit: >=1 should block or reject, 0: should accept
 * end: when does the block end
 * group: group name
+* reset: function to reset count if cache was used and include_reset specified otherwise None
 
 
 ### ratelimit.decorate:

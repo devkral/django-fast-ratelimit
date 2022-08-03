@@ -17,7 +17,7 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
       - name: Install package and run tests
-        run: pip install .
+        run: pip install .[test]
       - name: Run tox
         # Run tox using the version of Python in `PATH`
         run: tox -e py

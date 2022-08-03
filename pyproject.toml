@@ -20,10 +20,18 @@ packages = [
 [tool.poetry.dependencies]
 python = ">=3.6"
 django = ">=2.0"
+tox = {version="*", optional=true}
+
 
 [tool.poetry.dev-dependencies]
 tox = "*"
-django = ">=3.0"
+django = [
+  {version=">=3.0", python = "<3.8"},
+  {version=">=4.0", python = ">=3.8"}
+]
+
+[tool.poetry.extras]
+test = ["tox"]
 
 [build-system]
 requires = ["poetry_core>=1.0.0"]

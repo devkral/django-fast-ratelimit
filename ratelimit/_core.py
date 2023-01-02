@@ -149,7 +149,11 @@ def _(key):
 def get_ratelimit(
     group: Union[str, Callable[[HttpRequest], str]],
     key: Union[
-        str, tuple, list, Callable[[HttpRequest], Union[int, bool, str]]
+        str,
+        tuple,
+        list,
+        bytes,
+        Callable[[HttpRequest], Union[int, bool, str, bytes]],
     ],
     rate: Union[
         str, tuple, list, Callable[[HttpRequest], Union[int, bool, str]]

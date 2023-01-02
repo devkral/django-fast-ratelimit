@@ -58,6 +58,6 @@ UNSAFE = invertedset(SAFE)
 class RatelimitExceeded(PermissionDenied):
     ratelimit = None
 
-    def __init__(self, ratelimit, *args):
+    def __init__(self, ratelimit: Ratelimit, *args):
         self.ratelimit = ratelimit
         super().__init__(*args)

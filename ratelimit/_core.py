@@ -204,9 +204,6 @@ def get_ratelimit(
         group = group(request)
     if callable(methods):
         methods = methods(request, group)
-    assert isinstance(empty_to, (bool, bytes, int)), "invalid type: %s" % type(
-        empty_to
-    )
     assert (
         request or methods == ALL
     ), "error: no request but methods is not ALL"
@@ -226,6 +223,9 @@ def get_ratelimit(
         key = key(request, group)
         if isinstance(key, str):
             key = key.encode("utf8")
+    assert isinstance(empty_to, (bool, bytes, int)), "invalid type: %s" % type(
+        empty_to
+    )
     if key == b"":
         key = empty_to
 
@@ -367,9 +367,6 @@ async def aget_ratelimit(
 
     if isawaitable(methods):
         methods = await methods
-    assert isinstance(empty_to, (bool, bytes, int)), "invalid type: %s" % type(
-        empty_to
-    )
     assert (
         request or methods == ALL
     ), "error: no request but methods is not ALL"
@@ -397,6 +394,9 @@ async def aget_ratelimit(
         if isawaitable(key):
             key = await key
 
+    assert isinstance(empty_to, (bool, bytes, int)), "invalid type: %s" % type(
+        empty_to
+    )
     if key == b"":
         key = empty_to
 

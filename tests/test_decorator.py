@@ -132,7 +132,8 @@ class AsyncDecoratorTests(TestCase):
         await v(r2)
         self.assertEquals(
             r2.ratelimit2.group,
-            "%s.%s" % (O2gView.get.__module__, O2gView.get.__qualname__),
+            "%s.%s"
+            % (AsyncO2gView.get.__module__, AsyncO2gView.get.__qualname__),
         )
         self.assertTrue(callable(r2.ratelimit2.reset))
         r2 = self.factory.get("/home")

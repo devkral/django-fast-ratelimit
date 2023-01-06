@@ -1,11 +1,11 @@
-__all__ = ["decorate", "o2g", "parse_rate", "get_ratelimit"]
+__all__ = ["decorate", "o2g", "parse_rate", "get_ratelimit", "aget_ratelimit"]
 
 import re
 import hashlib
 import functools
 import time
 import base64
-from inspect import iscoroutinefunction
+from inspect import iscoroutinefunction, isawaitable
 from typing import Any, Awaitable, Union, Optional
 from collections.abc import Callable, Collection
 
@@ -97,9 +97,13 @@ def _(rate) -> tuple[int, int]:
 
 
 @parse_rate.register(type(None))
+def _(rate) -> tuple[int, int]:
+    return (0, 0)
+
+
 @parse_rate.register(tuple)
 def _(rate) -> tuple[int, int]:
-    assert rate is None or len(rate) == 2
+    assert len(rate) == 2
     return rate
 
 
@@ -200,20 +204,20 @@ def get_ratelimit(
         group = group(request)
     if callable(methods):
         methods = methods(request, group)
-    assert (
-        request or methods == ALL
-    ), "error: no request but methods is not ALL"  # noqa: E501
-    assert all(map(lambda x: x.isupper(), methods)), "error: method lowercase"
     assert isinstance(empty_to, (bool, bytes, int)), "invalid type: %s" % type(
         empty_to
-    )  # noqa: E501
-    # shortcut allow
-    if request and request.method not in methods:
-        return Ratelimit()
+    )
+    assert (
+        request or methods == ALL
+    ), "error: no request but methods is not ALL"
+    assert all(map(lambda x: x.isupper(), methods)), "error: method lowercase"
     if isinstance(methods, str):
         methods = {methods}
     if not isinstance(methods, frozenset):
         methods = frozenset(methods)
+    # shortcut allow
+    if request and request.method not in methods:
+        return Ratelimit()
 
     if isinstance(key, (str, tuple, list)):
         key = _retrieve_key_func(key)
@@ -233,6 +237,9 @@ def get_ratelimit(
     if callable(rate):
         rate = rate(request, group)
     rate = parse_rate(rate)
+    # if rate is 0 or None, always block and sidestep cache
+    if not rate[0]:
+        return Ratelimit(request_limit=1)
 
     # sidestep cache (bool is True or Result)
     if isinstance(key, int):
@@ -281,15 +288,27 @@ def get_ratelimit(
 
 
 async def aget_ratelimit(
-    group: Union[str, Callable[[HttpRequest], Union[Awaitable[str], str]]],
+    group: Union[
+        str,
+        Awaitable[str],
+        Callable[[HttpRequest], Union[Awaitable[str], str]],
+    ],
     key: Union[
         key_type,
+        Awaitable[key_type],
         Callable[[HttpRequest], Union[Awaitable[key_type], key_type]],
     ],
     rate: Union[
         str,
         tuple,
         list,
+        Awaitable[
+            Union[
+                str,
+                tuple,
+                list,
+            ]
+        ],
         Callable[
             [HttpRequest], Union[Awaitable[rate_out_type], rate_out_type]
         ],
@@ -301,7 +320,7 @@ async def aget_ratelimit(
         Collection,
         Callable[
             [HttpRequest, str],
-            Union[Awaitable[Union[Collection, str]], Collection, str],
+            Union[Collection, str],
         ],
     ] = ALL,
     action: Action = Action.PEEK,
@@ -339,31 +358,45 @@ async def aget_ratelimit(
         Awaitable[ratelimit.Ratelimit] -- ratelimit object
     """
     if callable(group):
-        group = await group(request)
+        group = group(request)
+
+    if isawaitable(group):
+        group = await group
     if callable(methods):
-        methods = await methods(request, group)
-    assert (
-        request or methods == ALL
-    ), "error: no request but methods is not ALL"  # noqa: E501
-    assert all(map(lambda x: x.isupper(), methods)), "error: method lowercase"
+        methods = methods(request, group)
+
+    if isawaitable(methods):
+        methods = await methods
     assert isinstance(empty_to, (bool, bytes, int)), "invalid type: %s" % type(
         empty_to
-    )  # noqa: E501
-    # shortcut allow
-    if request and request.method not in methods:
-        return Ratelimit()
+    )
+    assert (
+        request or methods == ALL
+    ), "error: no request but methods is not ALL"
+    assert all(map(lambda x: x.isupper(), methods)), "error: method lowercase"
     if isinstance(methods, str):
         methods = {methods}
     if not isinstance(methods, frozenset):
         methods = frozenset(methods)
+    # shortcut allow
+    if request and request.method not in methods:
+        return Ratelimit()
 
     if isinstance(key, (str, tuple, list)):
         key = _retrieve_key_func(key)
 
     if callable(key):
-        key = await key(request, group)
+        key = key(request, group)
+
+        if isawaitable(key):
+            key = await key
+
         if isinstance(key, str):
             key = key.encode("utf8")
+    else:
+        if isawaitable(key):
+            key = await key
+
     if key == b"":
         key = empty_to
 
@@ -373,8 +406,14 @@ async def aget_ratelimit(
         return Ratelimit()
 
     if callable(rate):
-        rate = await rate(request, group)
+        rate = rate(request, group)
+
+    if isawaitable(rate):
+        rate = await rate
     rate = parse_rate(rate)
+    # if rate is 0 or None, always block and sidestep cache
+    if not rate[0]:
+        return Ratelimit(request_limit=1)
 
     # sidestep cache (bool is True or Result)
     if isinstance(key, int):

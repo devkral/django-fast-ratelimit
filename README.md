@@ -214,7 +214,3 @@ See in methods which methods are available. Here some of them:
 -   RATELIMIT_ENABLE disable ratelimit (e.g. for tests) (default: enabled)
 -   RATELIMIT_KEY_PREFIX: internal prefix for the hash keys (so you don't have to create a new cache). Defaults to "frl:".
 -   RATELIMIT_DEFAULT_CACHE: default cache to use, defaults to "default" and can be overridden by cache parameter
-
-## TODO
-
--   more documentation

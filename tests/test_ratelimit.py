@@ -46,12 +46,21 @@ class ConstructionTests(TestCase):
             ("1/w", (1, 3600 * 24 * 7)),
             ((1, 6), (1, 6)),
             ([3, 7], (3, 7)),
+            ("0/4", (0, 4)),
         ]:
             r = parse_rate(rate[0])
             self.assertEqual(len(r), 2)
             self.assertEqual(r, rate[1])
-        with self.assertRaisesRegex(ValueError, "invalid rate"):
+        with self.assertRaises(NotImplementedError):
+            parse_rate(None)
+        with self.assertRaisesRegex(ValueError, "invalid rate format"):
             parse_rate("1")
+        with self.assertRaisesRegex(AssertionError, "invalid rate detected"):
+            parse_rate("1/0s")
+        with self.assertRaisesRegex(AssertionError, "invalid rate detected"):
+            parse_rate([1, 0])
+        with self.assertRaisesRegex(AssertionError, "invalid rate detected"):
+            parse_rate([1, 1, 1])
 
 
 class RatelimitTests(TransactionTestCase):
@@ -199,6 +208,24 @@ class RatelimitTests(TransactionTestCase):
                 empty_to=0,
             )
         self.assertEqual(r.request_limit, 0)
+
+    def test_disabled(self):
+
+        with self.assertRaises(ratelimit.Disabled):
+
+            ratelimit.get_ratelimit(
+                group="test_disabled1",
+                rate="0/s",
+                key="ip",
+                request=self.factory.get("/home"),
+            )
+        with self.assertRaises(ratelimit.Disabled):
+            ratelimit.get_ratelimit(
+                group="test_disabled2",
+                rate=(0, 4),
+                key="ip",
+                request=self.factory.get("/home"),
+            )
 
     def test_request(self):
         r = None

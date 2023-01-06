@@ -95,6 +95,19 @@ class DecoratorTests(TestCase):
         r = self.factory.get("/home")
         func(r)
 
+    def test_disabled(self):
+        func = ratelimit.decorate(rate="0/2s", key="ip")(func_beautyname)
+
+        with self.assertRaises(ratelimit.Disabled):
+            r = self.factory.get("/home")
+            func(r)
+
+        func = ratelimit.decorate(rate=(0, 1), key="ip")(func_beautyname)
+
+        with self.assertRaises(ratelimit.Disabled):
+            r = self.factory.get("/home")
+            func(r)
+
     def test_view(self):
         r = self.factory.get("/home")
         BogoView.as_view()(r)

@@ -19,13 +19,14 @@ from .misc import (
     invertedset,
     ALL,
     RatelimitExceeded,
+    Disabled,
     Ratelimit,
     Action,
 )
 from . import methods as rlimit_methods
 
 key_type = Union[str, tuple, list, bytes]
-rate_out_type = Union[int, bool, str]
+rate_out_type = Union[str, tuple, list]
 
 _rate = re.compile(r"(\d+)/(\d+)?([smhdw])?")
 
@@ -74,6 +75,22 @@ def _parse_parts(rate: tuple, methods: frozenset, hashname: str):
     return hasher
 
 
+def _check_rate(fn):
+    @functools.wraps(fn)
+    def _wrapper(*args):
+        rate = fn(*args)
+        assert (
+            isinstance(rate, tuple)
+            and len(rate) == 2
+            and rate[0] >= 0
+            and rate[1] > 0
+        ), f"invalid rate detected: {rate}, input: {args}"
+        return rate
+
+    return _wrapper
+
+
+@_check_rate
 @functools.singledispatch
 def parse_rate(rate) -> tuple[int, int]:
     raise NotImplementedError
@@ -93,19 +110,12 @@ def _(rate) -> tuple[int, int]:
 
 @parse_rate.register(list)
 def _(rate) -> tuple[int, int]:
-    assert len(rate) == 2
     return tuple(rate)
 
 
 @parse_rate.register(tuple)
 def _(rate) -> tuple[int, int]:
-    assert len(rate) == 2
     return rate
-
-
-@parse_rate.register(type(None))
-def _(rate) -> tuple[int, int]:
-    return (0, 0)
 
 
 @functools.singledispatch
@@ -161,7 +171,7 @@ def get_ratelimit(
         key_type,
         Callable[[HttpRequest], key_type],
     ],
-    rate: Union[str, tuple, list, Callable[[HttpRequest, str], rate_out_type]],
+    rate: Union[rate_out_type, Callable[[HttpRequest, str], rate_out_type]],
     *,
     request: Optional[HttpRequest] = None,
     methods: Union[
@@ -173,7 +183,7 @@ def get_ratelimit(
     cache: Optional[str] = None,
     hash_algo: Optional[str] = None,
     hashctx: Optional[Any] = None,
-    include_reset: bool = False
+    include_reset: bool = False,
 ) -> Ratelimit:
     """
     Get ratelimit information
@@ -240,8 +250,11 @@ def get_ratelimit(
     rate = parse_rate(rate)
     # if rate is 0 or None, always block and sidestep cache
     if not rate[0]:
-        return Ratelimit(
-            group=group, limit=rate[0], request_limit=1, end=rate[1]
+        raise Disabled(
+            Ratelimit(
+                group=group, limit=rate[0], request_limit=1, end=rate[1]
+            ),
+            "disabled by rate is None or 0",
         )
 
     # sidestep cache (bool maps to int)
@@ -305,16 +318,8 @@ async def aget_ratelimit(
         Callable[[HttpRequest], Union[Awaitable[key_type], key_type]],
     ],
     rate: Union[
-        str,
-        tuple,
-        list,
-        Awaitable[
-            Union[
-                str,
-                tuple,
-                list,
-            ]
-        ],
+        rate_out_type,
+        Awaitable[rate_out_type],
         Callable[
             [HttpRequest, str], Union[Awaitable[rate_out_type], rate_out_type]
         ],
@@ -336,7 +341,7 @@ async def aget_ratelimit(
     hash_algo: Optional[str] = None,
     hashctx: Optional[Any] = None,
     wait: bool = False,
-    include_reset: bool = False
+    include_reset: bool = False,
 ) -> Awaitable[Ratelimit]:
     """
     Get ratelimit information
@@ -420,10 +425,11 @@ async def aget_ratelimit(
     rate = parse_rate(rate)
     # if rate is 0 or None, always block and sidestep cache
     if not rate[0]:
-        if wait:
-            await asyncio.sleep(rate[1])
-        return Ratelimit(
-            group=group, limit=rate[0], request_limit=1, end=rate[1]
+        raise Disabled(
+            Ratelimit(
+                group=group, limit=rate[0], request_limit=1, end=rate[1]
+            ),
+            "disabled by rate is None or 0",
         )
 
     # sidestep cache (bool maps to int)
@@ -554,7 +560,7 @@ def decorate(func: Optional[Callable] = None, **context):
                     request=request,
                     action=Action.INCREASE,
                     include_reset=True,
-                    **context
+                    **context,
                 )
                 _process_nrlimit(nrlimit=nrlimit, block=block, request=request)
                 return await fn(request, *args, **kwargs)
@@ -574,7 +580,7 @@ def decorate(func: Optional[Callable] = None, **context):
                     request=request,
                     action=Action.INCREASE,
                     include_reset=True,
-                    **context
+                    **context,
                 )
                 _process_nrlimit(nrlimit=nrlimit, block=block, request=request)
                 return fn(request, *args, **kwargs)

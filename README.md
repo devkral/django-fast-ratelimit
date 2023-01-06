@@ -29,6 +29,21 @@ def expensive_func(request):
 
 ```
 
+or async
+
+```python
+import ratelimit
+import asyncio
+
+@ratelimit.decorate(key="ip", rate="1/s")
+async def expensive_func(request):
+    # how many ratelimits request limiting
+    if request.ratelimit["request_limit"] > 0:
+        # reschedule with end of rate epoch
+        await asyncio.sleep(request.ratelimit["end"])
+
+```
+
 blocking Decorator (raises RatelimitError):
 
 ```python
@@ -87,72 +102,118 @@ def func(request):
 
 ### ratelimit.get_ratelimit:
 
-- group: group name, can be callable (fun(request))
-- methods: set of checked methods, can be callable (fun(request, group)), modes:
-  - callable(request, group): allow dynamic
-  - ratelimit.ALL (default): all methods are checked
-  - \("HEAD", "GET"\): list of checked methods
-  - ratelimit.invertedset(["HEAD", "GET"]): inverted set of checked methods. Here: every method is checked, except HEAD, GET
-- request: ingoing request (optional if key supports it and methods=ratelimit.ALL (default))
-- key: multiple modes possible:
-  - bool: True: skip key (should only be used for baking), False: disable cache (like RATELIMIT_ENABLE=False)
-  - int: sidestep cache, value will be used for request_limit. 0 is for never blocking, >=1 blocks
-  - str: "path.to.method:argument"
-  - str: "inbuildmethod:argument" see methods for valid arguments
-  - str: "inbuildmethod" method which is ready to use for (request, group)
-  - tuple,list: ["method", args...]: method (can be also inbuild) with arbitary arguments
-  - bytes: static key (supports mode without request)
-  - callable: check return of function (fun(request, group)), return must be string (converted to bytes), bytes, bool or int (see "key" for effects)
-- empty_to: convert empty keys (b"") to parameter. Must be bytes, bool or int (see "key" for effects) (default: keep b"")
-- cache: specify cache to use, defaults to RATELIMIT_DEFAULT_CACHE setting (default: "default")
-- hash_algo: name of hash algorithm for creating cache_key (defaults to RATELIMIT_KEY_HASH setting (default: "sha256"))
-  Note: group is seperately hashed
-- hashctx: optimation parameter, read the code and only use if you know what you are doing. It basically circumvents the parameter hashing and only hashes the key. If the key parameter is True even the key is skipped
-- action {ratelimit.Action}:
-  - PEEK: only lookup
-  - INCREASE: count up and return result
-  - RESET: return former result and reset (default: {PEEK})
-- include_reset: add reset method to Ratelimit object if no cache bypass is in use
+-   group: group name, can be callable (fun(request))
+-   rate: rate limit, multiple modes
+    Note: if count (first argument) is 0, then it has the effect of None
+    -   str: default mode , specify rate in form of "1/4s" or "2/s"
+    -   2 element tuple/list: first argument is amount, second are seconds
+    -   None: always block, sidestep cache
+    -   callable: can return of three
+-   methods: set of checked methods, can be callable (fun(request, group)), modes:
+    -   callable(request, group): allow dynamic
+    -   ratelimit.ALL (default): all methods are checked
+    -   \("HEAD", "GET"\): list of checked methods
+    -   ratelimit.invertedset(["HEAD", "GET"]): inverted set of checked methods. Here: every method is checked, except HEAD, GET
+-   request: ingoing request (optional if key supports it and methods=ratelimit.ALL (default))
+-   key: multiple modes possible:
+    -   bool: True: skip key (should only be used for baking), False: disable cache (like RATELIMIT_ENABLE=False)
+    -   int: sidestep cache, value will be used for request_limit. 0 is for never blocking, >=1 blocks
+    -   str: "path.to.method:argument"
+    -   str: "inbuildmethod:argument" see methods for valid arguments
+    -   str: "inbuildmethod" method which is ready to use for (request, group)
+    -   tuple,list: ["method", args...]: method (can be also inbuild) with arbitary arguments
+    -   bytes: static key (supports mode without request)
+    -   callable: check return of function (fun(request, group)), return must be string (converted to bytes), bytes, bool or int (see "key" for effects)
+-   empty_to: convert empty keys (b"") to parameter. Must be bytes, bool or int (see "key" for effects) (default: keep b"")
+-   cache: specify cache to use, defaults to RATELIMIT_DEFAULT_CACHE setting (default: "default")
+-   hash_algo: name of hash algorithm for creating cache_key (defaults to RATELIMIT_KEY_HASH setting (default: "sha256"))
+    Note: group is seperately hashed
+-   hashctx: optimation parameter, read the code and only use if you know what you are doing. It basically circumvents the parameter hashing and only hashes the key. If the key parameter is True even the key is skipped
+-   action {ratelimit.Action}:
+    -   PEEK: only lookup
+    -   INCREASE: count up and return result
+    -   RESET: return former result and reset (default: {PEEK})
+-   include_reset: add reset method to Ratelimit object if no cache bypass is in use
 
-returns following dict
+returns following named_tuple
 
-- count: how often in the window the ip whatever was calling
-- limit: limit when it should block
-- request_limit: >=1 should block or reject, 0: should accept
-- end: when does the block end
-- group: group name
-- reset: function to reset count if cache was used and include_reset specified otherwise None
+-   count: how often in the window the ip whatever was calling
+-   limit: limit when it should block
+-   request_limit: >=1 should block or reject, 0: should accept
+-   end: when does the block end
+-   group: group name
+-   reset: function to reset count if cache was used and include_reset specified otherwise None
+
+### ratelimit.aget_ratelimit:
+
+same as `get_ratelimit` but supports async methods and has an optional parameter:
+`wait`, which suspends the execution (via `asyncio.sleep`) for the time specified in rate (second argument).
+This is only possible in async mode, as it would block too much in sync mode.
 
 ### ratelimit.decorate:
 
 All of ratelimit.get_ratelimit except request. group is here optional (except for decorations with method_decorator (no access to wrapped function)).
 Also supports:
 
-- block: should hard block with an RatelimitExceeded exception (subclass of PermissionDenied) or only annotate request with ratelimit
+-   block: should hard block with an RatelimitExceeded exception (subclass of PermissionDenied) or only annotate request with ratelimit
+-   wait (only async functions): suspends execution
+
+Note: wait is tricky with method_decorator: you must ensure that the function decorated is async
 
 ## helpers
 
-- ratelimit.invertedset: inverts a collection, useful for http methods
-- ratelimit.o2g: auto generate group names
+### ratelimit.invertedset:
+
+inverts a collection, useful for http methods
+
+### ratelimit.o2g:
+
+auto generate group names for method/function as input, see tests/test_decorators for more info
+
+Example:
+
+```python
+
+
+import ratelimit
+
+
+class O2gView(View):
+    def get(self, request, *args, **kwargs):
+        request.ratelimit2 = ratelimit.get_ratelimit(
+            group=ratelimit.o2g(self.get),
+            rate="1/s",
+            key=b"o2gtest",
+            action=ratelimit.Action.INCREASE,
+            include_reset=True,
+        )
+        if request.ratelimit2.request_limit > 0:
+            return HttpResponse(status=400)
+        return HttpResponse()
+
+
+
+
+```
 
 ## methods
 
 See in methods which methods are available. Here some of them:
 
-- ip: use ip address as key, argument: [netmask ipv4/]netmask ipv6
-- user: authenticated user primary key or b""
-- user_or_ip: use autenticated user primary key as key. If not autenticated fallback to ip, also with netmask argument
-- user_and_ip: same like user_or_ip except that the ip matching also applies for authenticated users
-- get: generate key from multiple sources, input can be multiple input args or a dict with options
+-   ip: use ip address as key, argument: [netmask ipv4/]netmask ipv6
+-   user: authenticated user primary key or b""
+-   user_or_ip: use autenticated user primary key as key. If not autenticated fallback to ip, also with netmask argument
+-   user_and_ip: same like user_or_ip except that the ip matching also applies for authenticated users
+-   get: generate key from multiple sources, input can be multiple input args or a dict with options
 
 ## settings
 
-- RATELIMIT_GROUP_HASH: hash function which is used for the group hash (default: md5)
-- RATELIMIT_KEY_HASH: hash function which is used as default for the key hash, can be overridden with hash_algo (default: md5)
-- RATELIMIT_ENABLE disable ratelimit (e.g. for tests) (default: enabled)
-- RATELIMIT_KEY_PREFIX: internal prefix for the hash keys (so you don't have to create a new cache). Defaults to "frl:".
-- RATELIMIT_DEFAULT_CACHE: default cache to use, defaults to "default" and can be overridden by cache parameter
+-   RATELIMIT_GROUP_HASH: hash function which is used for the group hash (default: md5)
+-   RATELIMIT_KEY_HASH: hash function which is used as default for the key hash, can be overridden with hash_algo (default: md5)
+-   RATELIMIT_ENABLE disable ratelimit (e.g. for tests) (default: enabled)
+-   RATELIMIT_KEY_PREFIX: internal prefix for the hash keys (so you don't have to create a new cache). Defaults to "frl:".
+-   RATELIMIT_DEFAULT_CACHE: default cache to use, defaults to "default" and can be overridden by cache parameter
 
 ## TODO
 
-- more documentation
+-   more documentation

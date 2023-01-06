@@ -3,6 +3,7 @@ from django.test import TestCase, RequestFactory
 from django.views.generic import View
 from django.utils.decorators import method_decorator
 from django import VERSION
+import time
 import unittest
 
 import ratelimit
@@ -17,7 +18,7 @@ async def afunc_beautyname(request):
 
 
 @method_decorator(
-    ratelimit.decorate(rate="1/s", key=b"34d<", group="here_required"),
+    ratelimit.decorate(rate="1/2s", key=b"34d<", group="here_required1"),
     name="dispatch",
 )
 class BogoView(View):
@@ -26,10 +27,21 @@ class BogoView(View):
 
 
 @method_decorator(
-    ratelimit.decorate(rate="1/s", key=b"34d<", group="here_required"),
-    name="dispatch",
+    ratelimit.decorate(rate="1/s", key=b"34d<", group="here_required2"),
+    name="get",
 )
 class AsyncBogoView(View):
+    async def get(self, request, *args, **kwargs):
+        return HttpResponse()
+
+
+@method_decorator(
+    ratelimit.decorate(
+        rate="1/s", key=b"34d<", wait=True, group="here_required3"
+    ),
+    name="get",
+)
+class AsyncBogoWaitView(View):
     async def get(self, request, *args, **kwargs):
         return HttpResponse()
 
@@ -86,7 +98,9 @@ class DecoratorTests(TestCase):
     def test_view(self):
         r = self.factory.get("/home")
         BogoView.as_view()(r)
-        self.assertEquals(r.ratelimit.group, "here_required")
+        self.assertEquals(r.ratelimit.group, "here_required1")
+
+    def test_o2goview(self):
         r = self.factory.get("/home")
         v = O2gView.as_view()
         v(r)
@@ -100,7 +114,7 @@ class DecoratorTests(TestCase):
         self.assertEquals(resp.status_code, 400)
 
 
-@unittest.skipIf(VERSION[:2] < (4, 1), "unsuported")
+@unittest.skipIf(VERSION[:2] < (4, 0), "unsuported")
 class AsyncDecoratorTests(TestCase):
     def setUp(self):
         self.factory = RequestFactory()
@@ -126,16 +140,30 @@ class AsyncDecoratorTests(TestCase):
         r1 = self.factory.get("/home")
         v = AsyncBogoView.as_view()
         await v(r1)
-        self.assertEquals(r1.ratelimit.group, "here_required")
-        r2 = self.factory.get("/home")
+        self.assertEquals(r1.ratelimit.group, "here_required2")
+
+    async def test_waitview(self):
+        r1 = self.factory.get("/home")
+        old = time.time()
+        v = AsyncBogoWaitView.as_view()
+        asyncresult = v(r1)
+        self.assertFalse(hasattr(r1, "ratelimit"))
+        await asyncresult
+        new = time.time()
+        self.assertGreater(new - old, 1)
+
+        self.assertEquals(r1.ratelimit.group, "here_required3")
+
+    async def test_o2goview(self):
+        r = self.factory.get("/home")
         v = AsyncO2gView.as_view()
-        await v(r2)
+        await v(r)
         self.assertEquals(
-            r2.ratelimit2.group,
+            r.ratelimit2.group,
             "%s.%s"
             % (AsyncO2gView.get.__module__, AsyncO2gView.get.__qualname__),
         )
-        self.assertTrue(callable(r2.ratelimit2.reset))
-        r2 = self.factory.get("/home")
-        resp = await v(r2)
+        self.assertTrue(callable(r.ratelimit2.reset))
+        r = self.factory.get("/home")
+        resp = await v(r)
         self.assertEquals(resp.status_code, 400)

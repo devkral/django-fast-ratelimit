@@ -12,7 +12,7 @@ from enum import Enum
 from math import inf
 from dataclasses import dataclass, field
 
-from typing import Optional, Union
+from typing import Optional, Union, NoReturn
 from collections.abc import Callable
 
 from django.core.exceptions import PermissionDenied
@@ -31,12 +31,12 @@ if sys.version_info >= (3, 10):
 
 @dataclass(**_deco_options)
 class Ratelimit:
+    group: str
     count: int = 0
     limit: Union[float, int] = inf
     request_limit: int = 0
-    end: Union[float, int] = inf
-    group: Optional[str] = None
-    reset: Optional[Callable[[], None]] = field(
+    end: Union[float, int] = 0
+    reset: Optional[Callable[[], NoReturn]] = field(
         default=None, repr=False, compare=False, hash=False
     )
 

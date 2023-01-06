@@ -5,6 +5,7 @@ import hashlib
 import functools
 import time
 import base64
+import asyncio
 from inspect import iscoroutinefunction, isawaitable
 from typing import Any, Awaitable, Union, Optional
 from collections.abc import Callable, Collection
@@ -96,15 +97,15 @@ def _(rate) -> tuple[int, int]:
     return tuple(rate)
 
 
-@parse_rate.register(type(None))
-def _(rate) -> tuple[int, int]:
-    return (0, 0)
-
-
 @parse_rate.register(tuple)
 def _(rate) -> tuple[int, int]:
     assert len(rate) == 2
     return rate
+
+
+@parse_rate.register(type(None))
+def _(rate) -> tuple[int, int]:
+    return (0, 0)
 
 
 @functools.singledispatch
@@ -160,7 +161,7 @@ def get_ratelimit(
         key_type,
         Callable[[HttpRequest], key_type],
     ],
-    rate: Union[str, tuple, list, Callable[[HttpRequest], rate_out_type]],
+    rate: Union[str, tuple, list, Callable[[HttpRequest, str], rate_out_type]],
     *,
     request: Optional[HttpRequest] = None,
     methods: Union[
@@ -214,7 +215,7 @@ def get_ratelimit(
         methods = frozenset(methods)
     # shortcut allow
     if request and request.method not in methods:
-        return Ratelimit()
+        return Ratelimit(group=group, end=0)
 
     if isinstance(key, (str, tuple, list)):
         key = _retrieve_key_func(key)
@@ -232,18 +233,22 @@ def get_ratelimit(
     assert isinstance(key, (bytes, bool, int))
     # shortcuts for disabling ratelimit
     if key is False or not getattr(settings, "RATELIMIT_ENABLE", True):
-        return Ratelimit()
+        return Ratelimit(group=group, end=0)
 
     if callable(rate):
         rate = rate(request, group)
     rate = parse_rate(rate)
     # if rate is 0 or None, always block and sidestep cache
     if not rate[0]:
-        return Ratelimit(request_limit=1)
+        return Ratelimit(
+            group=group, limit=rate[0], request_limit=1, end=rate[1]
+        )
 
-    # sidestep cache (bool is True or Result)
+    # sidestep cache (bool maps to int)
     if isinstance(key, int):
-        return Ratelimit(group=group, limit=rate[0], request_limit=key)
+        return Ratelimit(
+            group=group, limit=rate[0], request_limit=key, end=rate[1]
+        )
 
     if not prefix:
         prefix = getattr(settings, "RATELIMIT_KEY_PREFIX", "frl:")
@@ -281,6 +286,7 @@ def get_ratelimit(
         count=count,
         limit=rate[0],
         request_limit=1 if count is None or count > rate[0] else 0,
+        # use jitter of the former calls for end
         end=int(time.time()) + rate[1],
         group=group,
         reset=lambda: cache.delete(cache_key) if include_reset else None,
@@ -310,7 +316,7 @@ async def aget_ratelimit(
             ]
         ],
         Callable[
-            [HttpRequest], Union[Awaitable[rate_out_type], rate_out_type]
+            [HttpRequest, str], Union[Awaitable[rate_out_type], rate_out_type]
         ],
     ],
     *,
@@ -329,6 +335,7 @@ async def aget_ratelimit(
     cache: Optional[str] = None,
     hash_algo: Optional[str] = None,
     hashctx: Optional[Any] = None,
+    wait: bool = False,
     include_reset: bool = False
 ) -> Awaitable[Ratelimit]:
     """
@@ -377,7 +384,7 @@ async def aget_ratelimit(
         methods = frozenset(methods)
     # shortcut allow
     if request and request.method not in methods:
-        return Ratelimit()
+        return Ratelimit(group=group, end=0)
 
     if isinstance(key, (str, tuple, list)):
         key = _retrieve_key_func(key)
@@ -403,7 +410,7 @@ async def aget_ratelimit(
     assert isinstance(key, (bytes, bool, int))
     # shortcuts for disabling ratelimit
     if key is False or not getattr(settings, "RATELIMIT_ENABLE", True):
-        return Ratelimit()
+        return Ratelimit(group=group, end=0)
 
     if callable(rate):
         rate = rate(request, group)
@@ -413,11 +420,19 @@ async def aget_ratelimit(
     rate = parse_rate(rate)
     # if rate is 0 or None, always block and sidestep cache
     if not rate[0]:
-        return Ratelimit(request_limit=1)
+        if wait:
+            await asyncio.sleep(rate[1])
+        return Ratelimit(
+            group=group, limit=rate[0], request_limit=1, end=rate[1]
+        )
 
-    # sidestep cache (bool is True or Result)
+    # sidestep cache (bool maps to int)
     if isinstance(key, int):
-        return Ratelimit(group=group, limit=rate[0], request_limit=key)
+        if wait and key > 0:
+            await asyncio.sleep(rate[1])
+        return Ratelimit(
+            group=group, limit=rate[0], request_limit=key, end=rate[1]
+        )
 
     if not prefix:
         prefix = getattr(settings, "RATELIMIT_KEY_PREFIX", "frl:")
@@ -451,14 +466,18 @@ async def aget_ratelimit(
         if action == Action.RESET:
             await cache.adelete(cache_key)
 
-    return Ratelimit(
+    returnval = Ratelimit(
         count=count,
         limit=rate[0],
         request_limit=1 if count is None or count > rate[0] else 0,
+        # use jitter of the former calls for end
         end=int(time.time()) + rate[1],
         group=group,
         reset=lambda: cache.delete(cache_key) if include_reset else None,
     )
+    if wait and returnval.request_limit >= 1:
+        await asyncio.sleep(rate[1])
+    return returnval
 
 
 def o2g(obj):
@@ -522,8 +541,12 @@ def decorate(func: Optional[Callable] = None, **context):
                 context["key"] = True
         if isinstance(context["key"], (str, tuple, list)):
             context["key"] = _retrieve_key_func(context["key"])
-
-        if iscoroutinefunction(fn):
+        fntocheck = fn
+        if hasattr(fntocheck, "func"):
+            fntocheck = fntocheck.func
+        if hasattr(fntocheck, "__func__"):
+            fntocheck = fntocheck.__func__
+        if iscoroutinefunction(fntocheck):
 
             @functools.wraps(fn)
             async def _wrapper(request, *args, **kwargs):
@@ -542,6 +565,11 @@ def decorate(func: Optional[Callable] = None, **context):
 
             @functools.wraps(fn)
             def _wrapper(request, *args, **kwargs):
+                # one level above with method_decorator a non-async wrapper
+                # is created and discarded, so check only on the first call
+                assert (
+                    "wait" not in context
+                ), '"wait" is only for async functions/methods supported'
                 nrlimit = get_ratelimit(
                     request=request,
                     action=Action.INCREASE,

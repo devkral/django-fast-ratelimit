@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "django-fast-ratelimit"
 description = "Fast ratelimit implementation with django caches"
-version = "0.9.0"
+version = "0.9.1"
 license = "MIT"
 authors = ["Alexander Kaftan"]
 readme = "README.md"
@@ -20,15 +20,13 @@ packages = [
 [tool.poetry.dependencies]
 python = ">=3.9,<4.0"
 django = ">=3.0"
-tox = {version="*", optional=true}
 
+[tool.poetry.group.test.dependencies]
+tox = "*"
 
-[tool.poetry.dev-dependencies]
+[tool.poetry.group.dev.dependencies]
 tox = "*"
 django = ">=4.0"
-
-[tool.poetry.extras]
-test = ["tox"]
 
 [build-system]
 requires = ["poetry_core>=1.0.0"]

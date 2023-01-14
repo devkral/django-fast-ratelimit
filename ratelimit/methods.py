@@ -16,13 +16,26 @@ def get_RATELIMIT_TRUSTED_PROXY() -> frozenset:
         return frozenset(s)
 
 
+def _get_ip(request):
+    proxy_ip = request.META.get("REMOTE_ADDR", "unix")
+    if proxy_ip in get_RATELIMIT_TRUSTED_PROXY():
+        try:
+            return (
+                request.META["HTTP_X_FORWARDED_FOR"]
+                .split(",", 1)[0]
+                .strip()
+                .strip('"')
+            )
+        except KeyError:
+            pass
+    return proxy_ip
+
+
 @functools.singledispatch
 def user_or_ip(request, group):
     if request.user.is_authenticated:
         return str(request.user.pk)
-    return ipaddress.ip_network(
-        request.META["REMOTE_ADDR"], strict=False
-    ).compressed
+    return ipaddress.ip_network(_get_ip(request), strict=False).compressed
 
 
 @user_or_ip.register(str)
@@ -59,19 +72,6 @@ def _(netmask):
 @functools.singledispatch
 def get(_noarg):
     raise ValueError("invalid argument")
-
-
-def _get_ip(request):
-    proxy_ip = request.META.get("REMOTE_ADDR", "unix")
-    if proxy_ip in get_RATELIMIT_TRUSTED_PROXY():
-        try:
-            return request.META["HTTP_FORWARDED"]
-        except KeyError:
-            try:
-                return request.META["HTTP_X_FORWARDED_FOR"]
-            except KeyError:
-                pass
-    return proxy_ip
 
 
 @get.register(dict)

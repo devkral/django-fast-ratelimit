@@ -209,8 +209,10 @@ See in methods which methods are available. Here some of them:
 
 ## settings
 
--   RATELIMIT_GROUP_HASH: hash function which is used for the group hash (default: md5)
--   RATELIMIT_KEY_HASH: hash function which is used as default for the key hash, can be overridden with hash_algo (default: md5)
--   RATELIMIT_ENABLE disable ratelimit (e.g. for tests) (default: enabled)
--   RATELIMIT_KEY_PREFIX: internal prefix for the hash keys (so you don't have to create a new cache). Defaults to "frl:".
--   RATELIMIT_DEFAULT_CACHE: default cache to use, defaults to "default" and can be overridden by cache parameter
+-   `RATELIMIT_GROUP_HASH`: hash function which is used for the group hash (default: md5)
+-   `RATELIMIT_KEY_HASH`: hash function which is used as default for the key hash, can be overridden with hash_algo (default: md5)
+-   `RATELIMIT_ENABLE` disable ratelimit (e.g. for tests) (default: enabled)
+-   `RATELIMIT_KEY_PREFIX`: internal prefix for the hash keys (so you don't have to create a new cache). Defaults to "frl:".
+-   `RATELIMIT_DEFAULT_CACHE`: default cache to use, defaults to "default" and can be overridden by cache parameter
+-   `RATELIMIT_TRUSTED_PROXIES`: "all" for allowing all ip addresses to provide forward informations, or an iterable with proxy ips (will be transformed to a set). Note there is a special ip: "unix" for unix sockets. Default: ["unix"]
+    Used headers are: `Forwarded`, `X-Forwarded-For`

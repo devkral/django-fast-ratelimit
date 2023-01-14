@@ -2,7 +2,18 @@ __all__ = ["user_or_ip", "user_and_ip", "ip", "user", "get"]
 
 import functools
 import ipaddress
+from django.conf import settings
 from django.http import HttpRequest
+from .misc import invertedset
+
+
+@functools.lru_cache(maxsize=1)
+def get_RATELIMIT_TRUSTED_PROXY() -> frozenset:
+    s = getattr(settings, "RATELIMIT_TRUSTED_PROXIES", ["unix"])
+    if s == "all":
+        return invertedset()
+    else:
+        return frozenset(s)
 
 
 @functools.singledispatch
@@ -50,6 +61,16 @@ def get(_noarg):
     raise ValueError("invalid argument")
 
 
+def _get_ip(request):
+    proxy_ip = request.META.get("REMOTE_ADDR", "unix")
+    if proxy_ip in get_RATELIMIT_TRUSTED_PROXY():
+        try:
+            return request.META["HTTP_FORWARDED"]
+        except KeyError:
+            return request.META["HTTP_X_FORWARDED_FOR"]
+    return proxy_ip
+
+
 @get.register(dict)
 def _(config):
     headers = set(config.get("HEADER", []))
@@ -83,13 +104,11 @@ def _(config):
 
     def _generate_key(request):
         if netmask is True:
-            yield ipaddress.ip_network(
-                request.META["REMOTE_ADDR"], strict=False
-            ).compressed
+            ip = _get_ip(request)
+            yield ipaddress.ip_network(ip, strict=False).compressed
         elif netmask:
-            ipnet = ipaddress.ip_network(
-                request.META["REMOTE_ADDR"], strict=False
-            )
+            ip = _get_ip(request)
+            ipnet = ipaddress.ip_network(ip, strict=False)
             if ipnet.version == 4:
                 yield ipnet.supernet(netmask[0]).compressed
             else:

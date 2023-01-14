@@ -67,7 +67,10 @@ def _get_ip(request):
         try:
             return request.META["HTTP_FORWARDED"]
         except KeyError:
-            return request.META["HTTP_X_FORWARDED_FOR"]
+            try:
+                return request.META["HTTP_X_FORWARDED_FOR"]
+            except KeyError:
+                pass
     return proxy_ip
 
 

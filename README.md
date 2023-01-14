@@ -192,9 +192,6 @@ class O2gView(View):
             return HttpResponse(status=400)
         return HttpResponse()
 
-
-
-
 ```
 
 ## methods

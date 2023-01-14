@@ -2,9 +2,12 @@ __all__ = ["user_or_ip", "user_and_ip", "ip", "user", "get"]
 
 import functools
 import ipaddress
+import re
 from django.conf import settings
 from django.http import HttpRequest
 from .misc import invertedset
+
+_forwarded_regex = re.compile('for=([^":]+)')
 
 
 @functools.lru_cache(maxsize=1)
@@ -16,23 +19,29 @@ def get_RATELIMIT_TRUSTED_PROXY() -> frozenset:
         return frozenset(s)
 
 
-def _get_ip(request):
+def _get_ip(request: HttpRequest):
     proxy_ip = request.META.get("REMOTE_ADDR", "unix")
     if proxy_ip in get_RATELIMIT_TRUSTED_PROXY():
         try:
-            return (
-                request.META["HTTP_X_FORWARDED_FOR"]
-                .split(",", 1)[0]
-                .strip()
-                .strip('"')
+            ip_matches = _forwarded_regex.search(
+                request.META["HTTP_FORWARDED"]
             )
+            return ip_matches[0][1]
         except KeyError:
-            pass
+            try:
+                ip_first = request.META["HTTP_X_FORWARDED_FOR"].split(",", 1)[
+                    0
+                ]
+                return ip_first.strip().strip('"')
+            except KeyError:
+                pass
+    if proxy_ip == "unix":
+        raise ValueError("Could not determinate ip address")
     return proxy_ip
 
 
 @functools.singledispatch
-def user_or_ip(request, group):
+def user_or_ip(request: HttpRequest, group):
     if request.user.is_authenticated:
         return str(request.user.pk)
     return ipaddress.ip_network(_get_ip(request), strict=False).compressed
@@ -60,7 +69,7 @@ def _(netmask):
     def _(request, group):
         if request.user.is_authenticated:
             return str(request.user.pk)
-        ipnet = ipaddress.ip_network(request.META["REMOTE_ADDR"], strict=False)
+        ipnet = ipaddress.ip_network(_get_ip(request), strict=False)
         if ipnet.version == 4:
             return ipnet.supernet(netmask[0]).compressed
         else:
@@ -164,7 +173,7 @@ def _(*args):
 
 
 @functools.singledispatch
-def user_and_ip(request, group):
+def user_and_ip(request: HttpRequest, group):
     return get({"IP": True, "USER": True})(request, group)
 
 
@@ -177,7 +186,7 @@ user = get({"USER": True})
 
 
 @functools.singledispatch
-def ip(request, group):
+def ip(request: HttpRequest, group):
     return get({"IP": True})(request, group)
 
 

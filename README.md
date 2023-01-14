@@ -212,4 +212,9 @@ See in methods which methods are available. Here some of them:
 -   `RATELIMIT_KEY_PREFIX`: internal prefix for the hash keys (so you don't have to create a new cache). Defaults to "frl:".
 -   `RATELIMIT_DEFAULT_CACHE`: default cache to use, defaults to "default" and can be overridden by cache parameter
 -   `RATELIMIT_TRUSTED_PROXIES`: "all" for allowing all ip addresses to provide forward informations, or an iterable with proxy ips (will be transformed to a set). Note there is a special ip: "unix" for unix sockets. Default: ["unix"]
-    Used headers are: `X-Forwarded-For`
+    Used headers are: `Forwarded`, `X-Forwarded-For`
+
+# TODO
+
+-   test proxy headers
+-   test ip parsing

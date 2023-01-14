@@ -167,6 +167,17 @@ Note: wait is tricky with method_decorator: you must ensure that the function de
 
 inverts a collection, useful for http methods
 
+### ratelimit.get_ip:
+
+get client ip from request, using `RATELIMIT_TRUSTED_PROXIES` and forwarded headers
+
+```python
+import ratelimit
+
+ratelimit.get_ip(request)
+
+```
+
 ### ratelimit.o2g:
 
 auto generate group names for method/function as input, see tests/test_decorators for more info
@@ -174,8 +185,6 @@ auto generate group names for method/function as input, see tests/test_decorator
 Example:
 
 ```python
-
-
 import ratelimit
 
 
@@ -213,8 +222,3 @@ See in methods which methods are available. Here some of them:
 -   `RATELIMIT_DEFAULT_CACHE`: default cache to use, defaults to "default" and can be overridden by cache parameter
 -   `RATELIMIT_TRUSTED_PROXIES`: "all" for allowing all ip addresses to provide forward informations, or an iterable with proxy ips (will be transformed to a set). Note there is a special ip: "unix" for unix sockets. Default: ["unix"]
     Used headers are: `Forwarded`, `X-Forwarded-For`
-
-# TODO
-
--   test proxy headers
--   test ip parsing

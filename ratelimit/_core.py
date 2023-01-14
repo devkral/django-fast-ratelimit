@@ -127,6 +127,7 @@ def _retrieve_key_func(key):
 def _(key):
     key = key.split(":", 1)
     if "." not in key[0]:
+        assert not key[0].startswith("_"), "should not start with _"
         impname = "ratelimit.methods.%s" % key[0]
     else:
         impname = key[0]

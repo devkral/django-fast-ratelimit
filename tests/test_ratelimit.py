@@ -5,7 +5,6 @@ import time
 from django.contrib.auth.models import AnonymousUser
 from django.test import (
     TestCase,
-    TransactionTestCase,
     RequestFactory,
     override_settings,
 )
@@ -63,7 +62,7 @@ class ConstructionTests(TestCase):
             parse_rate([1, 1, 1])
 
 
-class RatelimitTests(TransactionTestCase):
+class RatelimitTests(TestCase):
     def setUp(self):
         self.factory = RequestFactory()
 

@@ -2,42 +2,8 @@ __all__ = ["user_or_ip", "user_and_ip", "ip", "user", "get"]
 
 import functools
 import ipaddress
-import re
-from django.conf import settings
 from django.http import HttpRequest
-from .misc import invertedset
-
-_forwarded_regex = re.compile('for=([^":]+)')
-
-
-@functools.lru_cache(maxsize=1)
-def get_RATELIMIT_TRUSTED_PROXY() -> frozenset:
-    s = getattr(settings, "RATELIMIT_TRUSTED_PROXIES", ["unix"])
-    if s == "all":
-        return invertedset()
-    else:
-        return frozenset(s)
-
-
-def _get_ip(request: HttpRequest):
-    proxy_ip = request.META.get("REMOTE_ADDR", "unix")
-    if proxy_ip in get_RATELIMIT_TRUSTED_PROXY():
-        try:
-            ip_matches = _forwarded_regex.search(
-                request.META["HTTP_FORWARDED"]
-            )
-            return ip_matches[0][1]
-        except KeyError:
-            try:
-                ip_first = request.META["HTTP_X_FORWARDED_FOR"].split(",", 1)[
-                    0
-                ]
-                return ip_first.strip().strip('"')
-            except KeyError:
-                pass
-    if proxy_ip == "unix":
-        raise ValueError("Could not determinate ip address")
-    return proxy_ip
+from .misc import get_ip as _get_ip
 
 
 @functools.singledispatch

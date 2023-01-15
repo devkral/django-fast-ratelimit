@@ -167,6 +167,13 @@ Note: wait is tricky with method_decorator: you must ensure that the function de
 
 inverts a collection, useful for http methods
 
+### ratelimit.get_RATELIMIT_TRUSTED_PROXY:
+
+get the `RATELIMIT_TRUSTED_PROXIES` parsed as set
+note: this function is cached. If you change this setting while testing you may have to call:
+
+`ratelimit.get_RATELIMIT_TRUSTED_PROXY.cache_clear()`
+
 ### ratelimit.get_ip:
 
 get client ip from request, using `RATELIMIT_TRUSTED_PROXIES` and forwarded headers

@@ -23,11 +23,13 @@ django = ">=3.0"
 
 [tool.poetry.group.test.dependencies]
 tox = "*"
+coverage = "*"
 
 [tool.poetry.group.dev.dependencies]
 tox = "*"
 django = ">=4.0"
 faker = "*"
+coverage = "*"
 
 [build-system]
 requires = ["poetry_core>=1.0.0"]

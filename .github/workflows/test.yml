@@ -20,5 +20,8 @@ jobs:
             - name: Install package
               run: poetry install --only main,test
             - name: Run tox
-              # Run tox using the version of Python in `PATH`
               run: poetry run tox -s
+            - name: Convert coverage
+              run: poetry run coverage xml
+            - name: Upload Coverage to Codecov
+              uses: codecov/codecov-action@v3

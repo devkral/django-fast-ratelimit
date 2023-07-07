@@ -222,6 +222,7 @@ See in methods which methods are available. Here some of them:
 
 ## settings
 
+-   `RATELIMIT_TESTCLIENT_FALLBACK`: in case instead of a client ip a testclient is detected map to the fallback. Set to "invalid" to fail. Default ::1
 -   `RATELIMIT_GROUP_HASH`: hash function which is used for the group hash (default: md5)
 -   `RATELIMIT_KEY_HASH`: hash function which is used as default for the key hash, can be overridden with hash_algo (default: md5)
 -   `RATELIMIT_ENABLE` disable ratelimit (e.g. for tests) (default: enabled)

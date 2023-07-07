@@ -10,18 +10,17 @@ __all__ = [
     "get_ip",
 ]
 
-import sys
-import re
 import functools
+import re
+import sys
+from collections.abc import Callable
+from dataclasses import dataclass, field
 from enum import Enum
 from math import inf
-from dataclasses import dataclass, field
+from typing import NoReturn, Optional, Union
 
-from typing import Optional, Union, NoReturn
-from collections.abc import Callable
-
-from django.core.exceptions import PermissionDenied
 from django.conf import settings
+from django.core.exceptions import PermissionDenied
 from django.http import HttpRequest
 
 
@@ -97,9 +96,7 @@ def get_ip(request: HttpRequest):
     client_ip = request.META.get("REMOTE_ADDR", "") or "unix"
     if client_ip in get_RATELIMIT_TRUSTED_PROXY():
         try:
-            ip_matches = _forwarded_regex.search(
-                request.META["HTTP_FORWARDED"]
-            )
+            ip_matches = _forwarded_regex.search(request.META["HTTP_FORWARDED"])
             client_ip = ip_matches[1]
         except KeyError:
             try:
@@ -109,9 +106,15 @@ def get_ip(request: HttpRequest):
                 client_ip = ip_matches[1]
             except KeyError:
                 pass
-    if client_ip == "unix":
+    if client_ip == "testclient":  # starlite test client
+        client_ip = getattr(
+            settings,
+            "RATELIMIT_TESTCLIENT_FALLBACK",
+            "::1",
+        )
+    if client_ip in {"unix", "invalid"}:
         raise ValueError("Could not determinate ip address")
-    if "." in client_ip:
+    if "." in client_ip and client_ip.count(":") <= 1:
         client_ip = _ip4_port_cleanup_regex.sub("", client_ip)
     else:
         client_ip = _ip6_port_cleanup_regex.sub("", client_ip).strip("[]")

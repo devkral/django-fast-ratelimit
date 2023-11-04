@@ -1,29 +1,23 @@
 __all__ = ["decorate", "o2g", "parse_rate", "get_ratelimit", "aget_ratelimit"]
 
-import re
-import hashlib
-import functools
-import time
-import base64
 import asyncio
-from inspect import iscoroutinefunction, isawaitable
-from typing import Any, Awaitable, Union, Optional
+import base64
+import functools
+import hashlib
+import re
+import time
 from collections.abc import Callable, Collection
+from inspect import isawaitable, iscoroutinefunction
+from typing import Any, Awaitable, Optional, Union
 
 from django.conf import settings
-from django.http import HttpRequest
 from django.core.cache import caches
+from django.http import HttpRequest
 from django.utils.module_loading import import_string
 
-from .misc import (
-    invertedset,
-    ALL,
-    RatelimitExceeded,
-    Disabled,
-    Ratelimit,
-    Action,
-)
 from . import methods as rlimit_methods
+from ._epoch import areset_epoch, epoch_call_count, reset_epoch
+from .misc import ALL, Action, Disabled, Ratelimit, RatelimitExceeded, invertedset
 
 key_type = Union[str, tuple, list, bytes]
 rate_out_type = Union[str, tuple, list]
@@ -80,10 +74,7 @@ def _check_rate(fn):
     def _wrapper(*args):
         rate = fn(*args)
         assert (
-            isinstance(rate, tuple)
-            and len(rate) == 2
-            and rate[0] >= 0
-            and rate[1] > 0
+            isinstance(rate, tuple) and len(rate) == 2 and rate[0] >= 0 and rate[1] > 0
         ), f"invalid rate detected: {rate}, input: {args}"
         return rate
 
@@ -184,7 +175,7 @@ def get_ratelimit(
     cache: Optional[str] = None,
     hash_algo: Optional[str] = None,
     hashctx: Optional[Any] = None,
-    include_reset: bool = False,
+    epoch: Optional[Union[object, int]] = None,
 ) -> Ratelimit:
     """
     Get ratelimit information
@@ -206,19 +197,19 @@ def get_ratelimit(
         cache {str} -- cache name (default: {None})
         hash_algo {str} -- Hash algorithm for key (default: {None})
         hashctx {hash_context} -- see README (default: {None})
-        include_reset {bool} --
-            add reset cache method if cache is in use (default: {False})
+        epoch {object|int} -- epoch (default: request)
+
 
     Returns:
         ratelimit.Ratelimit -- ratelimit object
     """
+    if not epoch:
+        epoch = request
     if callable(group):
         group = group(request)
     if callable(methods):
         methods = methods(request, group)
-    assert (
-        request or methods == ALL
-    ), "error: no request but methods is not ALL"
+    assert request or methods == ALL, "error: no request but methods is not ALL"
     assert all(map(lambda x: x.isupper(), methods)), "error: method lowercase"
     if isinstance(methods, str):
         methods = {methods}
@@ -235,9 +226,7 @@ def get_ratelimit(
         key = key(request, group)
         if isinstance(key, str):
             key = key.encode("utf8")
-    assert isinstance(empty_to, (bool, bytes, int)), "invalid type: %s" % type(
-        empty_to
-    )
+    assert isinstance(empty_to, (bool, bytes, int)), "invalid type: %s" % type(empty_to)
     if key == b"":
         key = empty_to
 
@@ -252,17 +241,13 @@ def get_ratelimit(
     # if rate is 0 or None, always block and sidestep cache
     if not rate[0]:
         raise Disabled(
-            Ratelimit(
-                group=group, limit=rate[0], request_limit=1, end=rate[1]
-            ),
+            Ratelimit(group=group, limit=rate[0], request_limit=1, end=rate[1]),
             "disabled by rate is None or 0",
         )
 
     # sidestep cache (bool maps to int)
     if isinstance(key, int):
-        return Ratelimit(
-            group=group, limit=rate[0], request_limit=key, end=rate[1]
-        )
+        return Ratelimit(group=group, limit=rate[0], request_limit=key, end=rate[1])
 
     if not prefix:
         prefix = getattr(settings, "RATELIMIT_KEY_PREFIX", "frl:")
@@ -282,6 +267,7 @@ def get_ratelimit(
 
     # use a fixed window counter algorithm
     if action == Action.INCREASE:
+        epoch_call_count(request, cache_key)
         # start with 1 (as if increased)
         if cache.add(cache_key, 1, rate[1]):
             count = 1
@@ -291,6 +277,9 @@ def get_ratelimit(
                 count = cache.incr(cache_key)
             except ValueError:
                 count = None
+    elif action == Action.RESET_EPOCH and epoch:
+        count = reset_epoch(epoch, cache, cache_key)
+
     else:
         count = cache.get(cache_key, 0)
         if action == Action.RESET:
@@ -303,7 +292,8 @@ def get_ratelimit(
         # use jitter of the former calls for end
         end=int(time.time()) + rate[1],
         group=group,
-        reset=lambda: cache.delete(cache_key) if include_reset else None,
+        cache=cache,
+        cache_key=cache_key,
     )
 
 
@@ -321,9 +311,7 @@ async def aget_ratelimit(
     rate: Union[
         rate_out_type,
         Awaitable[rate_out_type],
-        Callable[
-            [HttpRequest, str], Union[Awaitable[rate_out_type], rate_out_type]
-        ],
+        Callable[[HttpRequest, str], Union[Awaitable[rate_out_type], rate_out_type]],
     ],
     *,
     request: Optional[HttpRequest] = None,
@@ -342,7 +330,7 @@ async def aget_ratelimit(
     hash_algo: Optional[str] = None,
     hashctx: Optional[Any] = None,
     wait: bool = False,
-    include_reset: bool = False,
+    epoch: Optional[Union[int, object]] = None,
 ) -> Awaitable[Ratelimit]:
     """
     Get ratelimit information
@@ -364,12 +352,13 @@ async def aget_ratelimit(
         cache {str} -- cache name (default: {None})
         hash_algo {str} -- Hash algorithm for key (default: {None})
         hashctx {hash_context} -- see README (default: {None})
-        include_reset {bool} --
-            add reset cache method if cache is in use (default: {False})
+        epoch {object|int} -- epoch (default: request)
 
     Returns:
         Awaitable[ratelimit.Ratelimit] -- ratelimit object
     """
+    if not epoch:
+        epoch = request
     if callable(group):
         group = group(request)
 
@@ -380,9 +369,7 @@ async def aget_ratelimit(
 
     if isawaitable(methods):
         methods = await methods
-    assert (
-        request or methods == ALL
-    ), "error: no request but methods is not ALL"
+    assert request or methods == ALL, "error: no request but methods is not ALL"
     assert all(map(lambda x: x.isupper(), methods)), "error: method lowercase"
     if isinstance(methods, str):
         methods = {methods}
@@ -407,9 +394,7 @@ async def aget_ratelimit(
         if isawaitable(key):
             key = await key
 
-    assert isinstance(empty_to, (bool, bytes, int)), "invalid type: %s" % type(
-        empty_to
-    )
+    assert isinstance(empty_to, (bool, bytes, int)), "invalid type: %s" % type(empty_to)
     if key == b"":
         key = empty_to
 
@@ -427,9 +412,7 @@ async def aget_ratelimit(
     # if rate is 0 or None, always block and sidestep cache
     if not rate[0]:
         raise Disabled(
-            Ratelimit(
-                group=group, limit=rate[0], request_limit=1, end=rate[1]
-            ),
+            Ratelimit(group=group, limit=rate[0], request_limit=1, end=rate[1]),
             "disabled by rate is None or 0",
         )
 
@@ -437,9 +420,7 @@ async def aget_ratelimit(
     if isinstance(key, int):
         if wait and key > 0:
             await asyncio.sleep(rate[1])
-        return Ratelimit(
-            group=group, limit=rate[0], request_limit=key, end=rate[1]
-        )
+        return Ratelimit(group=group, limit=rate[0], request_limit=key, end=rate[1])
 
     if not prefix:
         prefix = getattr(settings, "RATELIMIT_KEY_PREFIX", "frl:")
@@ -459,6 +440,7 @@ async def aget_ratelimit(
 
     # use a fixed window counter algorithm
     if action == Action.INCREASE:
+        epoch_call_count(epoch, cache_key)
         # start with 1 (as if increased)
         if await cache.aadd(cache_key, 1, rate[1]):
             count = 1
@@ -468,6 +450,8 @@ async def aget_ratelimit(
                 count = await cache.aincr(cache_key)
             except ValueError:
                 count = None
+    elif action == Action.RESET_EPOCH and epoch:
+        count = await areset_epoch(epoch, cache, cache_key)
     else:
         count = await cache.aget(cache_key, 0)
         if action == Action.RESET:
@@ -480,7 +464,8 @@ async def aget_ratelimit(
         # use jitter of the former calls for end
         end=int(time.time()) + rate[1],
         group=group,
-        reset=lambda: cache.delete(cache_key) if include_reset else None,
+        cache=cache,
+        cache_key=cache_key,
     )
     if wait and returnval.request_limit >= 1:
         await asyncio.sleep(rate[1])
@@ -498,7 +483,6 @@ def o2g(obj):
 
 
 def _process_nrlimit(nrlimit: Ratelimit, block: bool, request: HttpRequest):
-
     if block and nrlimit.request_limit > 0:
         raise RatelimitExceeded(nrlimit)
     oldrlimit = getattr(request, "ratelimit", None)
@@ -519,14 +503,11 @@ def decorate(func: Optional[Callable] = None, **context):
     assert context.get("rate")
     assert "request" not in context
     assert "action" not in context
-    assert "include_reset" not in context
     block = context.pop("block", False)
     if "methods" not in context:
         context["methods"] = ALL
     if "hash_algo" not in context:
-        context["hash_algo"] = getattr(
-            settings, "RATELIMIT_KEY_HASH", "sha256"
-        )
+        context["hash_algo"] = getattr(settings, "RATELIMIT_KEY_HASH", "sha256")
 
     def _decorate(fn):
         if not context.get("group"):
@@ -560,7 +541,6 @@ def decorate(func: Optional[Callable] = None, **context):
                 nrlimit = await aget_ratelimit(
                     request=request,
                     action=Action.INCREASE,
-                    include_reset=True,
                     **context,
                 )
                 _process_nrlimit(nrlimit=nrlimit, block=block, request=request)
@@ -580,7 +560,6 @@ def decorate(func: Optional[Callable] = None, **context):
                 nrlimit = get_ratelimit(
                     request=request,
                     action=Action.INCREASE,
-                    include_reset=True,
                     **context,
                 )
                 _process_nrlimit(nrlimit=nrlimit, block=block, request=request)

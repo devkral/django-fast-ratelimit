@@ -131,17 +131,24 @@ def func(request):
 -   action {ratelimit.Action}:
     -   PEEK: only lookup
     -   INCREASE: count up and return result
-    -   RESET: return former result and reset (default: {PEEK})
--   include_reset: add reset method to Ratelimit object if no cache bypass is in use
+    -   RESET: return former result and reset
+    -   RESET_EPOCH: return count after reset of epoch. If neither epoch nor request is given like peek (default: {PEEK})
+-   epoch:
+    -   None: (default): use request as epoch
+    -   int: RESET_EPOCH resets by int. Negative int increases
+    -   object: attach counter to object
 
-returns following named_tuple
+returns following dataclass
 
 -   count: how often in the window the ip whatever was calling
 -   limit: limit when it should block
 -   request_limit: >=1 should block or reject, 0: should accept
 -   end: when does the block end
 -   group: group name
--   reset: function to reset count if cache was used and include_reset specified otherwise None
+-   group_key, cache: Optional, when specified reset and areset can be used
+
+-   reset: function to reset count if cache was used. When given an epoch the same as RESET_EPOCH
+-   areset: async version of reset
 
 or raises `ratelimit.Disabled` in case of the count in the rate is zero
 
@@ -202,7 +209,6 @@ class O2gView(View):
             rate="1/s",
             key=b"o2gtest",
             action=ratelimit.Action.INCREASE,
-            include_reset=True,
         )
         if request.ratelimit2.request_limit > 0:
             return HttpResponse(status=400)
@@ -230,3 +236,7 @@ See in methods which methods are available. Here some of them:
 -   `RATELIMIT_DEFAULT_CACHE`: default cache to use, defaults to "default" and can be overridden by cache parameter
 -   `RATELIMIT_TRUSTED_PROXIES`: "all" for allowing all ip addresses to provide forward informations, or an iterable with proxy ips (will be transformed to a set). Note there is a special ip: "unix" for unix sockets. Default: ["unix"]
     Used headers are: `Forwarded`, `X-Forwarded-For`
+
+## TODO:
+
+-   add documentation and tests for RESET_EPOCH and epoch and reset methods

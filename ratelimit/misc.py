@@ -13,21 +13,24 @@ __all__ = [
 import functools
 import re
 import sys
-from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
 from math import inf
 from typing import NoReturn, Optional, Union
 
 from django.conf import settings
+from django.core.cache import BaseCache
 from django.core.exceptions import PermissionDenied
 from django.http import HttpRequest
+
+from ._epoch import areset_epoch, reset_epoch
 
 
 class Action(Enum):
     PEEK = 1
     INCREASE = 2
     RESET = 3
+    RESET_EPOCH = 4
 
 
 _deco_options = {}
@@ -42,9 +45,22 @@ class Ratelimit:
     limit: Union[float, int] = inf
     request_limit: int = 0
     end: Union[float, int] = 0
-    reset: Optional[Callable[[], NoReturn]] = field(
-        default=None, repr=False, compare=False, hash=False
-    )
+    cache: Optional[BaseCache] = None
+    cache_key: Optional[str] = None
+
+    def reset(self, epoch=None) -> NoReturn:
+        assert self.cache and self.cache_key
+        if not epoch:
+            self.cache.delete(self.cache_key)
+        else:
+            reset_epoch(epoch, self.cache, self.cache_key)
+
+    async def areset(self, epoch=None) -> NoReturn:
+        assert self.cache and self.cache_key
+        if not epoch:
+            await self.cache.adelete(self.cache_key)
+        else:
+            await areset_epoch(epoch, self.cache, self.cache_key)
 
 
 class invertedset(frozenset):

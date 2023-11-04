@@ -1,20 +1,16 @@
 import hashlib
-import types
 import time
+import types
 
 from django.contrib.auth.models import AnonymousUser
-from django.test import (
-    TestCase,
-    RequestFactory,
-    override_settings,
-)
+from django.test import RequestFactory, TestCase, override_settings
 
 import ratelimit
 from ratelimit._core import (
-    _retrieve_key_func,
     _get_cache_key,
-    parse_rate,
     _get_group_hash,
+    _retrieve_key_func,
+    parse_rate,
 )
 
 
@@ -70,9 +66,7 @@ class RatelimitTests(TestCase):
         r = None
         for i in range(0, 4):
             # just view, without retrieving
-            r = ratelimit.get_ratelimit(
-                group="test_basic", rate="1/s", key=b"abc"
-            )
+            r = ratelimit.get_ratelimit(group="test_basic", rate="1/s", key=b"abc")
             self.assertEqual(r.request_limit, 0)
 
         for i in range(0, 2):
@@ -107,7 +101,6 @@ class RatelimitTests(TestCase):
                 rate="1/s",
                 key=b"abc2",
                 action=ratelimit.Action.INCREASE,
-                include_reset=True,
             )
         self.assertEqual(r.request_limit, 1)
         self.assertEqual(r.count, 2)
@@ -116,7 +109,6 @@ class RatelimitTests(TestCase):
             rate="1/s",
             key=b"abc2",
             action=ratelimit.Action.RESET,
-            include_reset=True,
         )
         self.assertEqual(r.request_limit, 1)
         self.assertEqual(r.count, 2)
@@ -125,7 +117,6 @@ class RatelimitTests(TestCase):
             rate="1/s",
             key=b"abc2",
             action=ratelimit.Action.INCREASE,
-            include_reset=True,
         )
         self.assertEqual(r.request_limit, 0)
         self.assertEqual(r.count, 1)
@@ -137,7 +128,6 @@ class RatelimitTests(TestCase):
                 rate="1/s",
                 key=b"abc2",
                 action=ratelimit.Action.INCREASE,
-                include_reset=True,
             )
         self.assertEqual(r.request_limit, 1)
         self.assertEqual(r.count, 2)
@@ -147,7 +137,6 @@ class RatelimitTests(TestCase):
             rate="1/s",
             key=b"abc2",
             action=ratelimit.Action.INCREASE,
-            include_reset=True,
         )
         self.assertEqual(r.request_limit, 0)
         self.assertEqual(r.count, 1)
@@ -209,9 +198,7 @@ class RatelimitTests(TestCase):
         self.assertEqual(r.request_limit, 0)
 
     def test_disabled(self):
-
         with self.assertRaises(ratelimit.Disabled):
-
             ratelimit.get_ratelimit(
                 group="test_disabled1",
                 rate="0/s",
@@ -336,9 +323,7 @@ class RatelimitTests(TestCase):
     def test_backends_explicit(self):
         for ha in ["md5", "sha256", "sha512"]:
             for cache in ["default", "db"]:
-                with override_settings(
-                    RATELIMIT_GROUP_HASH=ha, RATELIMIT_KEY_HASH=ha
-                ):
+                with override_settings(RATELIMIT_GROUP_HASH=ha, RATELIMIT_KEY_HASH=ha):
                     r = None
                     for i in range(0, 4):
                         r = ratelimit.get_ratelimit(

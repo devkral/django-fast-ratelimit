@@ -93,9 +93,9 @@ def func(request):
         key="ip", rate="1/s", request=request, group="123"
     )
     # reset (clears internal counter)
-    rlimit.reset()
+    counter_before_reset = rlimit.reset()
     # reset epoch (resets to the start of request/epoch)
-    rlimit.reset(request)
+    counter_before_reset = rlimit.reset(request)
     # decrease counter by arbitary amount
     rlimit.reset(19)
     # increase counter by arbitary amount
@@ -283,6 +283,8 @@ See in methods which methods are available. Here some of them:
 ## Update Notes:
 
 in version 1.0.0 the parameter `include_reset` was removed
+
+in version 1.2.0 reset_epoch calls return the counter before reset instead of the count after
 
 ## TODO:
 

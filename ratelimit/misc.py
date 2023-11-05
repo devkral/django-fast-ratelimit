@@ -56,7 +56,9 @@ class Ratelimit:
         if not self.can_reset:
             return None
         if not epoch:
-            return self.cache.delete(self.cache_key)
+            count = self.cache.get(self.cache_key, 0)
+            self.cache.delete(self.cache_key)
+            return count
         else:
             return reset_epoch(epoch, self.cache, self.cache_key)
 
@@ -64,14 +66,16 @@ class Ratelimit:
         if not self.can_reset:
             return None
         if not epoch:
-            return await self.cache.adelete(self.cache_key)
+            count = await self.cache.aget(self.cache_key, 0)
+            await self.cache.adelete(self.cache_key)
+            return count
         else:
             return await areset_epoch(epoch, self.cache, self.cache_key)
 
     def decorate_object(self, obj, name):
         # for decorate
         if not name:
-            return
+            return obj
         oldrlimit = getattr(obj, name, None)
 
         if not oldrlimit:
@@ -84,6 +88,7 @@ class Ratelimit:
             setattr(obj, name, self)
         else:
             oldrlimit.request_limit += self.request_limit
+        return obj
 
 
 class invertedset(frozenset):

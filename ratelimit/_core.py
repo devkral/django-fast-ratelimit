@@ -192,7 +192,7 @@ def get_ratelimit(
             PEEK: only lookup
             INCREASE: count up and return result
             RESET: return former result and reset
-            RESET_EPOCH: return count after reset of epoch.
+            RESET_EPOCH: return count before reset of epoch.
                          If neither epoch nor request is given like peek (default: {PEEK})
         prefix {str} -- cache-prefix (default: {in settings configured})
         empty_to {bytes|int} -- default if key returns None (default: {b""})
@@ -280,7 +280,8 @@ def get_ratelimit(
             except ValueError:
                 count = None
     elif action == Action.RESET_EPOCH and epoch:
-        count = reset_epoch(epoch, cache, cache_key)
+        count = cache.get(cache_key, 0)
+        reset_epoch(epoch, cache, cache_key)
 
     else:
         count = cache.get(cache_key, 0)
@@ -349,7 +350,7 @@ async def aget_ratelimit(
             PEEK: only lookup
             INCREASE: count up and return result
             RESET: return former result and reset (default: {PEEK})
-            RESET_EPOCH: return count after reset of epoch.
+            RESET_EPOCH: return count before reset of epoch.
                         If neither epoch nor request is given like peek (default: {PEEK})
         prefix {str} -- cache-prefix (default: {in settings configured})
         empty_to {bytes|int} -- default if key returns None (default: {b""})
@@ -455,7 +456,8 @@ async def aget_ratelimit(
             except ValueError:
                 count = None
     elif action == Action.RESET_EPOCH and epoch:
-        count = await areset_epoch(epoch, cache, cache_key)
+        count = await cache.aget(cache_key, 0)
+        await areset_epoch(epoch, cache, cache_key)
     else:
         count = await cache.aget(cache_key, 0)
         if action == Action.RESET:

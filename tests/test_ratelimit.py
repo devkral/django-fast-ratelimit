@@ -138,8 +138,8 @@ class RatelimitTests(TestCase):
             action=ratelimit.Action.RESET_EPOCH,
             epoch=1,
         )
-        self.assertEqual(r.request_limit, 0)
-        self.assertEqual(r.count, 1)
+        self.assertEqual(r.request_limit, 1)
+        self.assertEqual(r.count, 2)
 
     def test_reset_fn(self):
         for i in range(0, 2):
@@ -151,7 +151,7 @@ class RatelimitTests(TestCase):
             )
         self.assertEqual(r.request_limit, 1)
         self.assertEqual(r.count, 2)
-        r.reset()
+        self.assertEqual(r.reset(), 2)
         r = ratelimit.get_ratelimit(
             group="test_reset_fn",
             rate="1/s",
@@ -172,7 +172,7 @@ class RatelimitTests(TestCase):
             )
         self.assertEqual(r.request_limit, 1)
         self.assertEqual(r.count, 2)
-        r.reset(epoch)
+        self.assertEqual(r.reset(epoch), -1)
         r = ratelimit.get_ratelimit(
             group="test_reset_epoch_num_fn",
             rate="1/s",
@@ -204,7 +204,9 @@ class RatelimitTests(TestCase):
 
         self.assertEqual(r.request_limit, 1)
         self.assertEqual(r.count, 3)
-        r.reset(epoch)
+        self.assertEqual(r.reset(epoch), 1)
+        # should stay the same
+        self.assertEqual(r.reset(epoch), 1)
         r = ratelimit.get_ratelimit(
             group="test_reset_epoch_obj_fn",
             rate="2/m",
@@ -496,7 +498,7 @@ class AsyncTests(TestCase):
             )
         self.assertEqual(r.request_limit, 1)
         self.assertEqual(r.count, 2)
-        await r.areset(epoch)
+        self.assertEqual(await r.areset(epoch), -1)
         r = await ratelimit.aget_ratelimit(
             group="atest_reset_epoch_num_fn",
             rate="1/s",
@@ -528,7 +530,9 @@ class AsyncTests(TestCase):
 
         self.assertEqual(r.request_limit, 1)
         self.assertEqual(r.count, 3)
-        await r.areset(epoch)
+        self.assertEqual(r.count, 3)
+        self.assertEqual(await r.areset(epoch), 1)
+        self.assertEqual(await r.areset(epoch), 1)
         r = await ratelimit.aget_ratelimit(
             group="atest_reset_epoch_obj_fn",
             rate="2/m",

@@ -191,13 +191,15 @@ def get_ratelimit(
         action {ratelimit.Action} --
             PEEK: only lookup
             INCREASE: count up and return result
-            RESET: return former result and reset (default: {PEEK})
+            RESET: return former result and reset
+            RESET_EPOCH: return count after reset of epoch.
+                         If neither epoch nor request is given like peek (default: {PEEK})
         prefix {str} -- cache-prefix (default: {in settings configured})
         empty_to {bytes|int} -- default if key returns None (default: {b""})
         cache {str} -- cache name (default: {None})
         hash_algo {str} -- Hash algorithm for key (default: {None})
         hashctx {hash_context} -- see README (default: {None})
-        epoch {object|int} -- epoch (default: request)
+        epoch {object|int} -- see README (default: None)
 
 
     Returns:
@@ -267,7 +269,7 @@ def get_ratelimit(
 
     # use a fixed window counter algorithm
     if action == Action.INCREASE:
-        epoch_call_count(request, cache_key)
+        epoch_call_count(epoch, cache_key)
         # start with 1 (as if increased)
         if cache.add(cache_key, 1, rate[1]):
             count = 1
@@ -347,12 +349,14 @@ async def aget_ratelimit(
             PEEK: only lookup
             INCREASE: count up and return result
             RESET: return former result and reset (default: {PEEK})
+            RESET_EPOCH: return count after reset of epoch.
+                        If neither epoch nor request is given like peek (default: {PEEK})
         prefix {str} -- cache-prefix (default: {in settings configured})
         empty_to {bytes|int} -- default if key returns None (default: {b""})
         cache {str} -- cache name (default: {None})
         hash_algo {str} -- Hash algorithm for key (default: {None})
         hashctx {hash_context} -- see README (default: {None})
-        epoch {object|int} -- epoch (default: request)
+        epoch {object|int} -- see README (default: None)
 
     Returns:
         Awaitable[ratelimit.Ratelimit] -- ratelimit object

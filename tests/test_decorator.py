@@ -80,7 +80,7 @@ class DecoratorTests(TestCase):
         r = self.factory.get("/home")
         func(r)
         self.assertEquals(r.ratelimit.group, "tests.test_decorator.func_beautyname")
-        self.assertTrue(callable(r.ratelimit.reset))
+        self.assertTrue(r.ratelimit.can_reset)
         with self.assertRaises(ratelimit.RatelimitExceeded):
             r2 = self.factory.get("/home")
             func(r2)
@@ -114,7 +114,7 @@ class DecoratorTests(TestCase):
             r.ratelimit2.group,
             "%s.%s" % (O2gView.get.__module__, O2gView.get.__qualname__),
         )
-        self.assertTrue(callable(r.ratelimit2.reset))
+        self.assertTrue(r.ratelimit2.can_reset)
         r = self.factory.get("/home")
         resp = v(r)
         self.assertEquals(resp.status_code, 400)
@@ -130,7 +130,7 @@ class AsyncDecoratorTests(TestCase):
         r = self.factory.get("/home")
         await func(r)
         self.assertEquals(r.ratelimit.group, "tests.test_decorator.afunc_beautyname")
-        self.assertTrue(callable(r.ratelimit.reset))
+        self.assertTrue(r.ratelimit.can_reset)
         with self.assertRaises(ratelimit.RatelimitExceeded):
             r2 = self.factory.get("/home")
             await func(r2)
@@ -164,7 +164,7 @@ class AsyncDecoratorTests(TestCase):
             r.ratelimit2.group,
             "%s.%s" % (AsyncO2gView.get.__module__, AsyncO2gView.get.__qualname__),
         )
-        self.assertTrue(callable(r.ratelimit2.reset))
+        self.assertTrue(r.ratelimit2.can_reset)
         r = self.factory.get("/home")
         resp = await v(r)
         self.assertEquals(resp.status_code, 400)

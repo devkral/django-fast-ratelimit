@@ -16,7 +16,7 @@ import sys
 from dataclasses import dataclass
 from enum import Enum
 from math import inf
-from typing import NoReturn, Optional, Union
+from typing import Optional, Union
 
 from django.conf import settings
 from django.core.cache import BaseCache
@@ -48,19 +48,25 @@ class Ratelimit:
     cache: Optional[BaseCache] = None
     cache_key: Optional[str] = None
 
-    def reset(self, epoch=None) -> NoReturn:
-        assert self.cache and self.cache_key
-        if not epoch:
-            self.cache.delete(self.cache_key)
-        else:
-            reset_epoch(epoch, self.cache, self.cache_key)
+    @property
+    def can_reset(self):
+        return self.cache and self.cache_key
 
-    async def areset(self, epoch=None) -> NoReturn:
-        assert self.cache and self.cache_key
+    def reset(self, epoch=None) -> Optional[int]:
+        if not self.can_reset:
+            return None
         if not epoch:
-            await self.cache.adelete(self.cache_key)
+            return self.cache.delete(self.cache_key)
         else:
-            await areset_epoch(epoch, self.cache, self.cache_key)
+            return reset_epoch(epoch, self.cache, self.cache_key)
+
+    async def areset(self, epoch=None) -> Optional[int]:
+        if not self.can_reset:
+            return None
+        if not epoch:
+            return await self.cache.adelete(self.cache_key)
+        else:
+            return await areset_epoch(epoch, self.cache, self.cache_key)
 
 
 class invertedset(frozenset):

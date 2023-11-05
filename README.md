@@ -79,23 +79,57 @@ import ratelimit
 
 
 def func(request):
-    ratelimit.get_ratelimit(key="ip", rate="1/s", request=request, group="123")
+    ratelimit.get_ratelimit(key="ip", rate="1/s", request=request, group="123", action=ratelimit.Action.INCREASE)
     # or only for GET
     ratelimit.get_ratelimit(
-        key="ip", rate="1/s", request=request, group="123", methods="GET"
+        key="ip", rate="1/s", request=request, group="123", methods="GET", action=ratelimit.Action.INCREASE
     )
     # also simple calls possible (note: key in bytes format)
     ratelimit.get_ratelimit(
-        key=b"abc", rate="1/s", group="123"
+        key=b"abc", rate="1/s", group="123", action=ratelimit.Action.INCREASE
     )
+    # retrieve ratelimit
+    rlimit = ratelimit.get_ratelimit(
+        key="ip", rate="1/s", request=request, group="123"
+    )
+    # reset (clears internal counter)
+    rlimit.reset()
+    # reset epoch (resets to the start of request/epoch)
+    rlimit.reset(request)
+    # decrease counter by arbitary amount
+    rlimit.reset(19)
+    # increase counter by arbitary amount
+    rlimit.reset(-19)
+
     # check constraints of rate
     r = ratelimit.parse_rate("1/s")  # returns tuple (amount, period)
     assert(r[1]==1)  #  assert period is 1 second
     # for simple naming use o2g (object to group)
     ratelimit.get_ratelimit(
-        key=b"abc", rate=r, group=ratelimit.o2g(func)
+        key=b"abc", rate=r, group=ratelimit.o2g(func), action=ratelimit.Action.INCREASE
     )
 
+```
+
+manual async
+
+```python
+import ratelimit
+
+
+async def func(request):
+    # retrieve ratelimit
+    rlimit = await ratelimit.aget_ratelimit(
+        key="ip", rate="1/s", request=request, group="123"
+    )
+    # reset (clears internal counter)
+    await rlimit.areset()
+    # reset epoch (resets to the start of request/epoch)
+    await rlimit.areset(request)
+    # decrease counter by arbitary amount
+    await rlimit.areset(19)
+    # increase counter by arbitary amount
+    await rlimit.reset(-19)
 ```
 
 ## parameters
@@ -136,9 +170,15 @@ def func(request):
 -   epoch:
     -   None: (default): use request as epoch
     -   int: RESET_EPOCH resets by int. Negative int increases
-    -   object: attach counter to object
+    -   object: attach counter to an open object (Note: it cannot be object() directly and neither an object with slots)
 
-returns following dataclass
+returns the dataclass Ratelimit
+
+or raises `ratelimit.Disabled` in case of the count in the rate is zero
+
+### ratelimit.Ratelimit
+
+Fields
 
 -   count: how often in the window the ip whatever was calling
 -   limit: limit when it should block
@@ -147,10 +187,11 @@ returns following dataclass
 -   group: group name
 -   group_key, cache: Optional, when specified reset and areset can be used
 
+Functions:
+
+-   can_reset: is a reset possible or were bypasses used
 -   reset: function to reset count if cache was used. When given an epoch the same as RESET_EPOCH
 -   areset: async version of reset
-
-or raises `ratelimit.Disabled` in case of the count in the rate is zero
 
 ### ratelimit.aget_ratelimit:
 
@@ -236,7 +277,3 @@ See in methods which methods are available. Here some of them:
 -   `RATELIMIT_DEFAULT_CACHE`: default cache to use, defaults to "default" and can be overridden by cache parameter
 -   `RATELIMIT_TRUSTED_PROXIES`: "all" for allowing all ip addresses to provide forward informations, or an iterable with proxy ips (will be transformed to a set). Note there is a special ip: "unix" for unix sockets. Default: ["unix"]
     Used headers are: `Forwarded`, `X-Forwarded-For`
-
-## TODO:
-
--   add documentation and tests for RESET_EPOCH and epoch and reset methods

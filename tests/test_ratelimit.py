@@ -121,6 +121,26 @@ class RatelimitTests(TestCase):
         self.assertEqual(r.request_limit, 0)
         self.assertEqual(r.count, 1)
 
+    def test_reset_epoch(self):
+        for i in range(0, 2):
+            r = ratelimit.get_ratelimit(
+                group="test_reset_epoch",
+                rate="1/s",
+                key=b"abc2",
+                action=ratelimit.Action.INCREASE,
+            )
+        self.assertEqual(r.request_limit, 1)
+        self.assertEqual(r.count, 2)
+        r = ratelimit.get_ratelimit(
+            group="test_reset_epoch",
+            rate="1/s",
+            key=b"abc2",
+            action=ratelimit.Action.RESET_EPOCH,
+            epoch=1,
+        )
+        self.assertEqual(r.request_limit, 0)
+        self.assertEqual(r.count, 1)
+
     def test_reset_fn(self):
         for i in range(0, 2):
             r = ratelimit.get_ratelimit(
@@ -140,6 +160,59 @@ class RatelimitTests(TestCase):
         )
         self.assertEqual(r.request_limit, 0)
         self.assertEqual(r.count, 1)
+
+    def test_reset_epoch_num_fn(self):
+        epoch = 3
+        for i in range(0, 2):
+            r = ratelimit.get_ratelimit(
+                group="test_reset_epoch_num_fn",
+                rate="1/s",
+                key=b"abc2",
+                action=ratelimit.Action.INCREASE,
+            )
+        self.assertEqual(r.request_limit, 1)
+        self.assertEqual(r.count, 2)
+        r.reset(epoch)
+        r = ratelimit.get_ratelimit(
+            group="test_reset_epoch_num_fn",
+            rate="1/s",
+            key=b"abc2",
+            action=ratelimit.Action.INCREASE,
+        )
+        self.assertEqual(r.request_limit, 0)
+        self.assertEqual(r.count, 0)
+
+    def test_reset_epoch_obj_fn(self):
+        class Foo:
+            pass
+
+        epoch = Foo()
+        ratelimit.get_ratelimit(
+            group="test_reset_epoch_obj_fn",
+            rate="2/m",
+            key=b"abc2",
+            action=ratelimit.Action.INCREASE,
+        )
+        for i in range(0, 2):
+            r = ratelimit.get_ratelimit(
+                group="test_reset_epoch_obj_fn",
+                rate="2/m",
+                key=b"abc2",
+                action=ratelimit.Action.INCREASE,
+                epoch=epoch,
+            )
+
+        self.assertEqual(r.request_limit, 1)
+        self.assertEqual(r.count, 3)
+        r.reset(epoch)
+        r = ratelimit.get_ratelimit(
+            group="test_reset_epoch_obj_fn",
+            rate="2/m",
+            key=b"abc2",
+            action=ratelimit.Action.INCREASE,
+        )
+        self.assertEqual(r.request_limit, 0)
+        self.assertEqual(r.count, 2)
 
     def test_window(self):
         # window should start with first INCREASE and end after period
@@ -217,6 +290,7 @@ class RatelimitTests(TestCase):
         r = None
         request = self.factory.get("/customer/details")
         for i in range(0, 4):
+            # peek 4 times
             r = ratelimit.get_ratelimit(
                 group="test_request", rate="1/s", key="ip", request=request
             )
@@ -239,6 +313,39 @@ class RatelimitTests(TestCase):
             request=request,
         )
         self.assertEqual(r.request_limit, 1)
+
+    def test_request_reset_epoch(self):
+        r = None
+        request = self.factory.get("/customer/details")
+        for i in range(0, 2):
+            r = ratelimit.get_ratelimit(
+                group="test_request_reset_epoch",
+                rate="2/m",
+                key=b"abc2",
+                request=request,
+                action=ratelimit.Action.INCREASE,
+            )
+        request = self.factory.get("/customer/details")
+        for i in range(0, 2):
+            r = ratelimit.get_ratelimit(
+                group="test_request_reset_epoch",
+                rate="2/m",
+                key=b"abc2",
+                request=request,
+                action=ratelimit.Action.INCREASE,
+            )
+        self.assertEqual(r.request_limit, 1)
+        r.reset(request)
+        request = self.factory.get("/customer/details")
+        r = ratelimit.get_ratelimit(
+            group="test_request_reset_epoch",
+            rate="2/m",
+            key=b"abc2",
+            action=ratelimit.Action.PEEK,
+            request=request,
+        )
+        self.assertEqual(r.request_limit, 0)
+        self.assertEqual(r.count, 2)
 
     def test_request_post_get_filter(self):
         r = None
@@ -352,3 +459,81 @@ class RatelimitTests(TestCase):
                     )
                     self.assertEqual(r.request_limit, 1)
             _get_group_hash.cache_clear()
+
+
+class AsyncTests(TestCase):
+    def setUp(self):
+        self.factory = RequestFactory()
+
+    async def test_reset_fn(self):
+        for i in range(0, 2):
+            r = await ratelimit.aget_ratelimit(
+                group="atest_reset_fn",
+                rate="1/s",
+                key=b"abc2",
+                action=ratelimit.Action.INCREASE,
+            )
+        self.assertEqual(r.request_limit, 1)
+        self.assertEqual(r.count, 2)
+        await r.areset()
+        r = await ratelimit.aget_ratelimit(
+            group="atest_reset_fn",
+            rate="1/s",
+            key=b"abc2",
+            action=ratelimit.Action.INCREASE,
+        )
+        self.assertEqual(r.request_limit, 0)
+        self.assertEqual(r.count, 1)
+
+    async def test_reset_epoch_num_fn(self):
+        epoch = 3
+        for i in range(0, 2):
+            r = await ratelimit.aget_ratelimit(
+                group="atest_reset_epoch_num_fn",
+                rate="1/s",
+                key=b"abc2",
+                action=ratelimit.Action.INCREASE,
+            )
+        self.assertEqual(r.request_limit, 1)
+        self.assertEqual(r.count, 2)
+        await r.areset(epoch)
+        r = await ratelimit.aget_ratelimit(
+            group="atest_reset_epoch_num_fn",
+            rate="1/s",
+            key=b"abc2",
+            action=ratelimit.Action.INCREASE,
+        )
+        self.assertEqual(r.request_limit, 0)
+        self.assertEqual(r.count, 0)
+
+    async def test_reset_epoch_obj_fn(self):
+        class Foo:
+            pass
+
+        epoch = Foo()
+        await ratelimit.aget_ratelimit(
+            group="atest_reset_epoch_obj_fn",
+            rate="2/m",
+            key=b"abc2",
+            action=ratelimit.Action.INCREASE,
+        )
+        for i in range(0, 2):
+            r = await ratelimit.aget_ratelimit(
+                group="atest_reset_epoch_obj_fn",
+                rate="2/m",
+                key=b"abc2",
+                action=ratelimit.Action.INCREASE,
+                epoch=epoch,
+            )
+
+        self.assertEqual(r.request_limit, 1)
+        self.assertEqual(r.count, 3)
+        await r.areset(epoch)
+        r = await ratelimit.aget_ratelimit(
+            group="atest_reset_epoch_obj_fn",
+            rate="2/m",
+            key=b"abc2",
+            action=ratelimit.Action.INCREASE,
+        )
+        self.assertEqual(r.request_limit, 0)
+        self.assertEqual(r.count, 2)

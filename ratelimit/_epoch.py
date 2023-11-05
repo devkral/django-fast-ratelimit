@@ -1,3 +1,7 @@
+"""
+private helpers for epoch stuff
+"""
+
 from typing import Optional
 
 from django.core.cache import BaseCache
@@ -6,11 +10,12 @@ from django.core.cache import BaseCache
 def epoch_call_count(epoch, cache_key, delta=1) -> Optional[int]:
     if epoch is None or isinstance(epoch, int):
         return epoch
-    if not hasattr(epoch, f"_fast_ratelimit_{cache_key}_count"):
-        setattr(epoch, f"_fast_ratelimit_{cache_key}_count", 0)
-    count = getattr(epoch, f"_fast_ratelimit_{cache_key}_count")
+    if not hasattr(epoch, "_fast_ratelimit_dict_count"):
+        setattr(epoch, "_fast_ratelimit_dict_count", {})
+    counter_dict = getattr(epoch, "_fast_ratelimit_dict_count")
+    count = counter_dict.get(cache_key, 0)
     if delta != 0:
-        setattr(epoch, f"_fast_ratelimit_{cache_key}_count", count + delta)
+        counter_dict[cache_key] = count + delta
     return count + delta
 
 

@@ -1,7 +1,9 @@
 import hashlib
 import time
 import types
+import unittest
 
+from django import VERSION
 from django.contrib.auth.models import AnonymousUser
 from django.test import RequestFactory, TestCase, override_settings
 
@@ -463,6 +465,7 @@ class RatelimitTests(TestCase):
             _get_group_hash.cache_clear()
 
 
+@unittest.skipIf(VERSION[:2] < (4, 0), "unsuported")
 class AsyncTests(TestCase):
     def setUp(self):
         self.factory = RequestFactory()

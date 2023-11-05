@@ -49,7 +49,7 @@ blocking Decorator (raises RatelimitError):
 ```python
 import ratelimit
 
-@ratelimit.decorate(key="ip", rate="1/s", block=True, methods=ratelimit.UNSAFE)
+@ratelimit.decorate(key="ip", rate="1/s", block=True, decorate_name="ratelimit", methods=ratelimit.UNSAFE)
 def expensive_func(request):
     # how many ratelimits request limiting
     if request.ratelimit["end"] > 0:
@@ -192,6 +192,7 @@ Functions:
 -   can_reset: is a reset possible or were bypasses used
 -   reset: function to reset count if cache was used. When given an epoch the same as RESET_EPOCH
 -   areset: async version of reset
+-   decorate_object(obj, name): attach to object obj with name and
 
 ### ratelimit.aget_ratelimit:
 
@@ -205,6 +206,7 @@ All of ratelimit.get_ratelimit except request. group is here optional (except fo
 Also supports:
 
 -   block: should hard block with an RatelimitExceeded exception (subclass of PermissionDenied) or only annotate request with ratelimit
+-   decorate_name: under what name the ratelimit is attached to the request. set to None/empty to not decorate request. Uses Ratelimit.decorate_object. Defaults to "ratelimit"
 -   wait (only async functions): suspends execution
 
 Note: wait is tricky with method_decorator: you must ensure that the function decorated is async
@@ -281,3 +283,8 @@ See in methods which methods are available. Here some of them:
 ## Update Notes:
 
 in version 1.0.0 the parameter `include_reset` was removed
+
+## TODO:
+
+-   document and test wait parameter
+-   improve documentation decorate_name and decorate_object

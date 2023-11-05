@@ -68,6 +68,23 @@ class Ratelimit:
         else:
             return await areset_epoch(epoch, self.cache, self.cache_key)
 
+    def decorate_object(self, obj, name):
+        # for decorate
+        if not name:
+            return
+        oldrlimit = getattr(obj, name, None)
+
+        if not oldrlimit:
+            setattr(obj, name, self)
+        elif bool(oldrlimit.request_limit) != bool(self.request_limit):
+            if self.request_limit:
+                setattr(obj, name, self)
+        elif oldrlimit.end > self.end:
+            self.request_limit += oldrlimit.request_limit
+            setattr(obj, name, self)
+        else:
+            oldrlimit.request_limit += self.request_limit
+
 
 class invertedset(frozenset):
     """

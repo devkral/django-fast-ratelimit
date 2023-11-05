@@ -486,28 +486,13 @@ def o2g(obj):
     return ".".join(parts)
 
 
-def _process_nrlimit(nrlimit: Ratelimit, block: bool, request: HttpRequest):
-    if block and nrlimit.request_limit > 0:
-        raise RatelimitExceeded(nrlimit)
-    oldrlimit = getattr(request, "ratelimit", None)
-    if not oldrlimit:
-        setattr(request, "ratelimit", nrlimit)
-    elif bool(oldrlimit.request_limit) != bool(nrlimit.request_limit):
-        if nrlimit.request_limit:
-            setattr(request, "ratelimit", nrlimit)
-    elif oldrlimit.end > nrlimit.end:
-        nrlimit.request_limit += oldrlimit.request_limit
-        setattr(request, "ratelimit", nrlimit)
-    else:
-        oldrlimit.request_limit += nrlimit.request_limit
-
-
 def decorate(func: Optional[Callable] = None, **context):
     assert context.get("key")
     assert context.get("rate")
     assert "request" not in context
     assert "action" not in context
     block = context.pop("block", False)
+    decorate_name = context.pop("decorate_name", "ratelimit")
     if "methods" not in context:
         context["methods"] = ALL
     if "hash_algo" not in context:
@@ -547,7 +532,9 @@ def decorate(func: Optional[Callable] = None, **context):
                     action=Action.INCREASE,
                     **context,
                 )
-                _process_nrlimit(nrlimit=nrlimit, block=block, request=request)
+                if block and nrlimit.request_limit > 0:
+                    raise RatelimitExceeded(nrlimit)
+                nrlimit.decorate_object(request, decorate_name)
                 return await fn(request, *args, **kwargs)
 
             return _wrapper
@@ -566,7 +553,9 @@ def decorate(func: Optional[Callable] = None, **context):
                     action=Action.INCREASE,
                     **context,
                 )
-                _process_nrlimit(nrlimit=nrlimit, block=block, request=request)
+                if block and nrlimit.request_limit > 0:
+                    raise RatelimitExceeded(nrlimit)
+                nrlimit.decorate_object(request, decorate_name)
                 return fn(request, *args, **kwargs)
 
             return _wrapper

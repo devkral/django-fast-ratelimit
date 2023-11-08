@@ -192,7 +192,8 @@ Functions:
 -   can_reset: is a reset possible or were bypasses used
 -   reset: function to reset count if cache was used. When given an epoch the same as RESET_EPOCH
 -   areset: async version of reset
--   decorate_object(obj, name): attach to object obj with name and
+-   raise_on_limit: raise RatelimitExceeded when limit is reached
+-   decorate_object(obj, name, block=False): attach to object obj with name and use old limits too, raise RatelimitExceeded when block = True
 
 ### ratelimit.aget_ratelimit:
 

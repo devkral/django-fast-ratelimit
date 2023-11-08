@@ -88,6 +88,21 @@ class DecoratorTests(TestCase):
         r = self.factory.get("/home")
         func(r)
 
+    def test_block_without_decorate(self):
+        func = ratelimit.decorate(
+            rate="1/2s",
+            key="ip",
+            block=True,
+            decorate_name=None,
+            group="test_block_without_decorate",
+        )(func_beautyname)
+        r = self.factory.get("/home")
+        func(r)
+        self.assertFalse(hasattr(r, "ratelimit"))
+        with self.assertRaises(ratelimit.RatelimitExceeded):
+            r2 = self.factory.get("/home")
+            func(r2)
+
     def test_disabled(self):
         func = ratelimit.decorate(rate="0/2s", key="ip")(func_beautyname)
 

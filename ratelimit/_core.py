@@ -17,7 +17,7 @@ from django.utils.module_loading import import_string
 
 from . import methods as rlimit_methods
 from ._epoch import areset_epoch, epoch_call_count, reset_epoch
-from .misc import ALL, Action, Disabled, Ratelimit, RatelimitExceeded, invertedset
+from .misc import ALL, Action, Disabled, Ratelimit, invertedset
 
 key_type = Union[str, tuple, list, bytes]
 rate_out_type = Union[str, tuple, list]
@@ -534,9 +534,7 @@ def decorate(func: Optional[Callable] = None, **context):
                     action=Action.INCREASE,
                     **context,
                 )
-                if block and nrlimit.request_limit > 0:
-                    raise RatelimitExceeded(nrlimit)
-                nrlimit.decorate_object(request, decorate_name)
+                nrlimit.decorate_object(request, decorate_name, block)
                 return await fn(request, *args, **kwargs)
 
             return _wrapper
@@ -555,9 +553,7 @@ def decorate(func: Optional[Callable] = None, **context):
                     action=Action.INCREASE,
                     **context,
                 )
-                if block and nrlimit.request_limit > 0:
-                    raise RatelimitExceeded(nrlimit)
-                nrlimit.decorate_object(request, decorate_name)
+                nrlimit.decorate_object(request, decorate_name, block)
                 return fn(request, *args, **kwargs)
 
             return _wrapper

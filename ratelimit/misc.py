@@ -52,6 +52,10 @@ class Ratelimit:
     def can_reset(self):
         return self.cache and self.cache_key
 
+    def raise_on_limit(self):
+        if self.request_limit > 0:
+            raise RatelimitExceeded(self)
+
     def reset(self, epoch=None) -> Optional[int]:
         if not self.can_reset:
             return None
@@ -72,22 +76,26 @@ class Ratelimit:
         else:
             return await areset_epoch(epoch, self.cache, self.cache_key)
 
-    def decorate_object(self, obj, name):
+    def decorate_object(self, obj, name=None, block=False):
         # for decorate
         if not name:
+            if block:
+                self.raise_on_limit()
             return obj
         oldrlimit = getattr(obj, name, None)
-
-        if not oldrlimit:
-            setattr(obj, name, self)
-        elif bool(oldrlimit.request_limit) != bool(self.request_limit):
-            if self.request_limit:
+        if oldrlimit is not self:
+            if not oldrlimit:
                 setattr(obj, name, self)
-        elif oldrlimit.end > self.end:
-            self.request_limit += oldrlimit.request_limit
-            setattr(obj, name, self)
-        else:
-            oldrlimit.request_limit += self.request_limit
+            elif bool(oldrlimit.request_limit) != bool(self.request_limit):
+                if self.request_limit:
+                    setattr(obj, name, self)
+            elif oldrlimit.end > self.end:
+                self.request_limit += oldrlimit.request_limit
+                setattr(obj, name, self)
+            else:
+                oldrlimit.request_limit += self.request_limit
+        if block:
+            getattr(obj, name).raise_on_limit()
         return obj
 
 

@@ -243,13 +243,18 @@ def get_ratelimit(
     # if rate is 0 or None, always block and sidestep cache
     if not rate[0]:
         raise Disabled(
-            Ratelimit(group=group, limit=rate[0], request_limit=1, end=rate[1]),
+            Ratelimit(group=group, limit=rate[0], request_limit=1, end=0),
             "disabled by rate is None or 0",
         )
 
     # sidestep cache (bool maps to int)
     if isinstance(key, int):
-        return Ratelimit(group=group, limit=rate[0], request_limit=key, end=rate[1])
+        return Ratelimit(
+            group=group,
+            limit=rate[0],
+            request_limit=key,
+            end=int(time.time()) + rate[1],
+        )
 
     if not prefix:
         prefix = getattr(settings, "RATELIMIT_KEY_PREFIX", "frl:")
@@ -417,7 +422,7 @@ async def aget_ratelimit(
     # if rate is 0 or None, always block and sidestep cache
     if not rate[0]:
         raise Disabled(
-            Ratelimit(group=group, limit=rate[0], request_limit=1, end=rate[1]),
+            Ratelimit(group=group, limit=rate[0], request_limit=1, end=0),
             "disabled by rate is None or 0",
         )
 
@@ -425,7 +430,12 @@ async def aget_ratelimit(
     if isinstance(key, int):
         if wait and key > 0:
             await asyncio.sleep(rate[1])
-        return Ratelimit(group=group, limit=rate[0], request_limit=key, end=rate[1])
+        return Ratelimit(
+            group=group,
+            limit=rate[0],
+            request_limit=key,
+            end=int(time.time()) + rate[1],
+        )
 
     if not prefix:
         prefix = getattr(settings, "RATELIMIT_KEY_PREFIX", "frl:")
@@ -463,7 +473,7 @@ async def aget_ratelimit(
         if action == Action.RESET:
             await cache.adelete(cache_key)
 
-    returnval = Ratelimit(
+    return Ratelimit(
         count=count,
         limit=rate[0],
         request_limit=1 if count is None or count > rate[0] else 0,
@@ -473,9 +483,6 @@ async def aget_ratelimit(
         cache=cache,
         cache_key=cache_key,
     )
-    if wait and returnval.request_limit >= 1:
-        await asyncio.sleep(rate[1])
-    return returnval
 
 
 def o2g(obj):
@@ -494,6 +501,7 @@ def decorate(func: Optional[Callable] = None, **context):
     assert "request" not in context
     assert "action" not in context
     block = context.pop("block", False)
+    replace = context.pop("replace", False)
     decorate_name = context.pop("decorate_name", "ratelimit")
     if "methods" not in context:
         context["methods"] = ALL
@@ -526,6 +534,7 @@ def decorate(func: Optional[Callable] = None, **context):
         if hasattr(fntocheck, "__func__"):
             fntocheck = fntocheck.__func__
         if iscoroutinefunction(fntocheck):
+            wait = context.pop("wait", False)
 
             @functools.wraps(fn)
             async def _wrapper(request, *args, **kwargs):
@@ -534,7 +543,13 @@ def decorate(func: Optional[Callable] = None, **context):
                     action=Action.INCREASE,
                     **context,
                 )
-                nrlimit.decorate_object(request, decorate_name, block)
+                await nrlimit.adecorate_object(
+                    request,
+                    decorate_name,
+                    wait=wait,
+                    block=block,
+                    replace=replace,
+                )
                 return await fn(request, *args, **kwargs)
 
             return _wrapper
@@ -553,7 +568,9 @@ def decorate(func: Optional[Callable] = None, **context):
                     action=Action.INCREASE,
                     **context,
                 )
-                nrlimit.decorate_object(request, decorate_name, block)
+                nrlimit.decorate_object(
+                    request, decorate_name, block=block, replace=replace
+                )
                 return fn(request, *args, **kwargs)
 
             return _wrapper

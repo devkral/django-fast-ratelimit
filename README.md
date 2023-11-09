@@ -185,15 +185,23 @@ Fields
 -   request_limit: >=1 should block or reject, 0: should accept
 -   end: when does the block end
 -   group: group name
--   group_key, cache: Optional, when specified reset and areset can be used
+-   group_key, cache: Optional, when specified reset and areset can be used, internal fields
+-   waited_ms: internal field, stores info how long was waited, in ms instead of rate seconds
 
 Functions:
 
 -   can_reset: is a reset possible or were bypasses used
 -   reset: function to reset count if cache was used. When given an epoch the same as RESET_EPOCH
 -   areset: async version of reset
--   raise_on_limit: raise RatelimitExceeded when limit is reached
--   decorate_object(obj, name, block=False): attach to object obj with name and use old limits too, raise RatelimitExceeded when block = True
+-   check(block=False): raise RatelimitExceeded when block = True and ratelimit is exceeded
+-   acheck(wait=False, block=False): raise RatelimitExceeded when block = True and ratelimit is exceeded, wait for end of ratelimit duration when wait=True
+-   decorate_object(obj, name=None, block=False, replace=False): attach to object obj with name and use old limits too, pass block to check
+-   adecorate_object(obj, name=None, wait=False, block=False, replace=False): attach to object obj with name and use old limits too, pass block and wait to acheck
+
+arguments:
+block:
+wait:
+replace:
 
 ### ratelimit.aget_ratelimit:
 
@@ -282,6 +290,8 @@ See in methods which methods are available. Here some of them:
     Used headers are: `Forwarded`, `X-Forwarded-For`
 
 ## Update Notes:
+
+in version 2.0.0 the parameter `raise_on_limit` was removed and replaced by check(block=True)
 
 in version 1.0.0 the parameter `include_reset` was removed
 

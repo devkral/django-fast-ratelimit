@@ -10,10 +10,12 @@ __all__ = [
     "get_ip",
 ]
 
+import asyncio
 import functools
 import re
 import sys
-from dataclasses import dataclass
+import time
+from dataclasses import dataclass, field
 from enum import Enum
 from math import inf
 from typing import Optional, Union
@@ -45,16 +47,34 @@ class Ratelimit:
     limit: Union[float, int] = inf
     request_limit: int = 0
     end: Union[float, int] = 0
-    cache: Optional[BaseCache] = None
-    cache_key: Optional[str] = None
+    cache: Optional[BaseCache] = field(
+        default=None, compare=False, hash=False, repr=False
+    )
+    cache_key: Optional[str] = field(
+        default=None, compare=False, hash=False, repr=False
+    )
+
+    def check(self, block=False):
+        if self.request_limit > 0:
+            if block:
+                raise RatelimitExceeded(self)
+            return False
+        return True
+
+    async def acheck(self, wait=False, block=False):
+        if self.request_limit > 0:
+            if wait:
+                remaining_dur = self.end - int(time.time())
+                if remaining_dur > 0:
+                    await asyncio.sleep(remaining_dur)
+            if block:
+                raise RatelimitExceeded(self)
+            return False
+        return True
 
     @property
     def can_reset(self):
         return self.cache and self.cache_key
-
-    def raise_on_limit(self):
-        if self.request_limit > 0:
-            raise RatelimitExceeded(self)
 
     def reset(self, epoch=None) -> Optional[int]:
         if not self.can_reset:
@@ -76,26 +96,46 @@ class Ratelimit:
         else:
             return await areset_epoch(epoch, self.cache, self.cache_key)
 
-    def decorate_object(self, obj, name=None, block=False):
+    def _decorate_intern(self, obj, name, replace):
+        if replace:
+            setattr(obj, name, self)
+            return self
+        else:
+            oldrlimit = getattr(obj, name, None)
+            if oldrlimit != self:
+                if not oldrlimit:
+                    setattr(obj, name, self)
+                elif bool(oldrlimit.request_limit) != bool(self.request_limit):
+                    if self.request_limit:
+                        setattr(obj, name, self)
+                elif oldrlimit.end > self.end:
+                    self.request_limit += oldrlimit.request_limit
+                    if self.waited_ms < oldrlimit.waited_ms:
+                        self.waited_ms = oldrlimit.waited_ms
+                    setattr(obj, name, self)
+                else:
+                    # oldrlimit.end <= self.end
+                    oldrlimit.request_limit += self.request_limit
+                    if oldrlimit.waited_ms < self.waited_ms:
+                        oldrlimit.waited_ms = self.waited_ms
+            return getattr(obj, name)
+
+    def decorate_object(self, obj, name=None, block=False, replace=False):
         # for decorate
         if not name:
-            if block:
-                self.raise_on_limit()
+            self.check(block=block)
             return obj
-        oldrlimit = getattr(obj, name, None)
-        if oldrlimit is not self:
-            if not oldrlimit:
-                setattr(obj, name, self)
-            elif bool(oldrlimit.request_limit) != bool(self.request_limit):
-                if self.request_limit:
-                    setattr(obj, name, self)
-            elif oldrlimit.end > self.end:
-                self.request_limit += oldrlimit.request_limit
-                setattr(obj, name, self)
-            else:
-                oldrlimit.request_limit += self.request_limit
-        if block:
-            getattr(obj, name).raise_on_limit()
+        self._decorate_intern(obj, name, replace).check(block=block)
+        return obj
+
+    async def adecorate_object(
+        self, obj, name=None, wait=False, block=False, replace=False
+    ):
+        # for decorate
+        if not name:
+            await self.acheck(wait=wait, block=block)
+            return obj
+        await self._decorate_intern(obj, name, replace).acheck(wait=wait, block=block)
         return obj
 
 

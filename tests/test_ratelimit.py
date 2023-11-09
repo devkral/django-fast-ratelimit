@@ -80,7 +80,7 @@ class RatelimitTests(TestCase):
             )
         self.assertEqual(r.request_limit, 1)
         with self.assertRaises(ratelimit.RatelimitExceeded):
-            r.raise_on_limit()
+            r.check(block=True)
 
         self.assertEqual(r.count, 2)
         r = ratelimit.get_ratelimit(

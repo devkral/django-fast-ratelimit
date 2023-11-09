@@ -6,6 +6,7 @@ __all__ = [
     "UNSAFE",
     "RatelimitExceeded",
     "Disabled",
+    "protect_sync_only",
     "get_RATELIMIT_TRUSTED_PROXY",
     "get_ip",
 ]
@@ -176,6 +177,18 @@ def get_RATELIMIT_TRUSTED_PROXY() -> frozenset:
         return invertedset()
     else:
         return frozenset(s)
+
+
+def protect_sync_only(fn):
+    @functools.wraps(fn)
+    def inner(*args):
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            return fn(*args)
+        return loop.run_in_executor(None, fn, *args)
+
+    return inner
 
 
 _forwarded_regex = re.compile(r'for="?([^";, ]+)', re.IGNORECASE)

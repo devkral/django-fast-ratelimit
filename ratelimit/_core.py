@@ -228,6 +228,7 @@ def get_ratelimit(
         key = key(request, group)
         if isinstance(key, str):
             key = key.encode("utf8")
+    assert not isawaitable(key), "cannot use async in sync method %s" % key
     assert isinstance(empty_to, (bool, bytes, int)), "invalid type: %s" % type(empty_to)
     if key == b"":
         key = empty_to
@@ -395,20 +396,17 @@ async def aget_ratelimit(
     if callable(key):
         key = key(request, group)
 
-        if isawaitable(key):
-            key = await key
+    if isawaitable(key):
+        key = await key
 
-        if isinstance(key, str):
-            key = key.encode("utf8")
-    else:
-        if isawaitable(key):
-            key = await key
-
+    if isinstance(key, str):
+        key = key.encode("utf8")
     assert isinstance(empty_to, (bool, bytes, int)), "invalid type: %s" % type(empty_to)
+
     if key == b"":
         key = empty_to
 
-    assert isinstance(key, (bytes, bool, int))
+    assert isinstance(key, (bytes, bool, int)), f"{key!r}: {type(key)}"
     # shortcuts for disabling ratelimit
     if key is False or not getattr(settings, "RATELIMIT_ENABLE", True):
         return Ratelimit(group=group, end=0)

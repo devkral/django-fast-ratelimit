@@ -496,6 +496,20 @@ class AsyncTests(TestCase):
     def setUp(self):
         self.factory = RequestFactory()
 
+    async def test_sync_in_async(self):
+        from django.utils.asyncio import async_unsafe
+
+        @ratelimit.protect_sync_only
+        @async_unsafe
+        def raise_on_async(request, group):
+            return group
+
+        await ratelimit.aget_ratelimit(
+            group="test_sync_in_async",
+            rate="1/s",
+            key=raise_on_async,
+        )
+
     async def test_reset_fn(self):
         for i in range(0, 2):
             r = await ratelimit.aget_ratelimit(

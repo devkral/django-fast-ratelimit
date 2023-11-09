@@ -1,16 +1,19 @@
 __all__ = ["user_or_ip", "user_and_ip", "ip", "user", "get"]
 
 import functools
-import ipaddress
+import ipaddress as _ipaddress
+
 from django.http import HttpRequest
+
 from .misc import get_ip as _get_ip
+from .misc import protect_sync_only as _protect_sync_only
 
 
 @functools.singledispatch
 def user_or_ip(request: HttpRequest, group):
     if request.user.is_authenticated:
         return str(request.user.pk)
-    return ipaddress.ip_network(_get_ip(request), strict=False).compressed
+    return _ipaddress.ip_network(_get_ip(request), strict=False).compressed
 
 
 @user_or_ip.register(str)
@@ -35,7 +38,7 @@ def _(netmask):
     def _(request, group):
         if request.user.is_authenticated:
             return str(request.user.pk)
-        ipnet = ipaddress.ip_network(_get_ip(request), strict=False)
+        ipnet = _ipaddress.ip_network(_get_ip(request), strict=False)
         if ipnet.version == 4:
             return ipnet.supernet(netmask[0]).compressed
         else:
@@ -83,10 +86,10 @@ def _(config):
     def _generate_key(request):
         if netmask is True:
             ip = _get_ip(request)
-            yield ipaddress.ip_network(ip, strict=False).compressed
+            yield _ipaddress.ip_network(ip, strict=False).compressed
         elif netmask:
             ip = _get_ip(request)
-            ipnet = ipaddress.ip_network(ip, strict=False)
+            ipnet = _ipaddress.ip_network(ip, strict=False)
             if ipnet.version == 4:
                 yield ipnet.supernet(netmask[0]).compressed
             else:
@@ -110,7 +113,12 @@ def _(config):
                 # empty values will be ignored
                 yield request.GET.get(arg, "")
 
-    return lambda request, group: "".join(_generate_key(request))
+    if check_user:
+        return _protect_sync_only(
+            lambda request, group: "".join(_generate_key(request))
+        )
+    else:
+        return lambda request, group: "".join(_generate_key(request))
 
 
 @get.register(str)

@@ -268,6 +268,10 @@ class O2gView(View):
 
 ```
 
+### ratelimit.protect_sync_only
+
+for libraries. In case of async return protected asyncified function otherwise call library directly
+
 ## methods
 
 See in methods which methods are available. Here some of them:

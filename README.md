@@ -198,10 +198,50 @@ Functions:
 -   decorate_object(obj, name=None, block=False, replace=False): attach to object obj with name and use old limits too, pass block to check
 -   adecorate_object(obj, name=None, wait=False, block=False, replace=False): attach to object obj with name and use old limits too, pass block and wait to acheck
 
+Note: decorate_object with name=None behaves like check (except return value), the same applies for adecorate_object
+
 arguments:
-block:
-wait:
-replace:
+
+-   wait: wait until end timestamp when ratelimit was exceeded. Next call should work again, applied before block
+-   block: raise a RatelimitExceeded exception
+-   replace: ignore potential old ratelimit object atttached to object and just replace it
+
+Example: decorate_object
+
+```python
+import ratelimit
+
+class Foo():
+    pass
+
+r = get_ratelimit(
+    group="foo",
+    rate="1/s",
+    key=b"foo",
+    action=ratelimit.Action.INCREASE,
+)
+
+# manual way
+foo = r.decorate_object(Foo(), name="ratelimit")
+if not foo.ratelimit.check():
+    raise ratelimit.RatelimitExceeded(r)
+else:
+    pass
+    # do cool stuff
+
+# simplified
+
+foo2 = r.decorate_object(Foo(), name="ratelimit", block=True)
+
+# artistic (no point in doing so)
+
+r.decorate_object(Foo(), name="ratelimit_is_cool").ratelimit_is_cool.check(block=True)
+
+# similar to check, except return value is always instance of Foo()
+
+r.decorate_object(Foo(), block=True)
+
+```
 
 ### ratelimit.aget_ratelimit:
 

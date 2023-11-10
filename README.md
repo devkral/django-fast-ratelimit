@@ -206,6 +206,8 @@ arguments:
 -   block: raise a RatelimitExceeded exception
 -   replace: ignore potential old ratelimit object atttached to object and just replace it
 
+why only async methods have wait? It doesn't really block (only the userlandthread). In contrast to its sync equivalent it doesn't block the webserver significantly
+
 Example: decorate_object
 
 ```python
@@ -260,6 +262,8 @@ Also supports:
 
 Note: wait is tricky with method_decorator: you must ensure that the function decorated is async
 
+why only async methods have wait? It doesn't really block (only the userlandthread). In contrast to its sync equivalent it doesn't block the webserver significantly
+
 ## helpers
 
 ### ratelimit.invertedset:
@@ -311,6 +315,30 @@ class O2gView(View):
 ### ratelimit.protect_sync_only
 
 for libraries. In case of async return protected asyncified function otherwise call library directly
+
+## recipes
+
+jitter:
+
+```python
+import ratelimit
+import asyncio
+import secrets
+
+async def foo()
+
+    r = await ratelimit.aget_ratelimit(
+        group="foo",
+        rate="1/s",
+        key=b"foo",
+        action=ratelimit.Action.INCREASE,
+    )
+    # 100ms jitter
+    await asyncio.sleep(secrets.randbelow(100) / 100)
+    # raise when limit reached, wait until full second jitter is eliminated in raise case as end was created before the jitter
+    await r.acheck(wait=True, block=True)
+
+```
 
 ## methods
 

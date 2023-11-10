@@ -195,8 +195,8 @@ Functions:
 -   areset: async version of reset
 -   check(block=False): raise RatelimitExceeded when block = True and ratelimit is exceeded
 -   acheck(wait=False, block=False): raise RatelimitExceeded when block = True and ratelimit is exceeded, wait for end of ratelimit duration when wait=True
--   decorate_object(obj, name=None, block=False, replace=False): attach to object obj with name and use old limits too, pass block to check
--   adecorate_object(obj, name=None, wait=False, block=False, replace=False): attach to object obj with name and use old limits too, pass block and wait to acheck
+-   decorate_object(obj, name="ratelimit", block=False, replace=False): attach to object obj with name and use old limits too, pass block to check
+-   adecorate_object(obj, name="ratelimit", wait=False, block=False, replace=False): attach to object obj with name and use old limits too, pass block and wait to acheck
 
 Note: decorate_object with name=None behaves like check (except return value), the same applies for adecorate_object
 
@@ -233,15 +233,29 @@ else:
 
 # simplified
 
-foo2 = r.decorate_object(Foo(), name="ratelimit", block=True)
+foo2 = r.decorate_object(Foo(), block=True)
 
 # artistic (no point in doing so)
 
 r.decorate_object(Foo(), name="ratelimit_is_cool").ratelimit_is_cool.check(block=True)
 
-# similar to check, except return value is always instance of Foo()
+# like check with instance of Foo() as return value
 
-r.decorate_object(Foo(), block=True)
+foo3 r.decorate_object(Foo(), name=None, wait=True)
+
+# decorate function
+
+@r.decorate_object(block=True)
+def fn():
+    pass
+
+# of course also this works
+
+@r.decorate_object
+def fn():
+    pass
+
+
 
 ```
 
@@ -362,6 +376,8 @@ See in methods which methods are available. Here some of them:
     Used headers are: `Forwarded`, `X-Forwarded-For`
 
 ## Update Notes:
+
+in version 3.0.0 the name parameter of (a)decorate_object was changed to ratelimit
 
 in version 2.0.0 the parameter `raise_on_limit` was removed and replaced by check(block=True)
 

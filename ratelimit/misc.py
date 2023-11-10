@@ -121,7 +121,11 @@ class Ratelimit:
                         oldrlimit.waited_ms = self.waited_ms
             return getattr(obj, name)
 
-    def decorate_object(self, obj, name=None, block=False, replace=False):
+    def decorate_object(self, obj=None, name="ratelimit", block=False, replace=False):
+        if not obj:
+            return functools.partial(
+                self.decorate_object, name=name, block=block, replace=replace
+            )
         # for decorate
         if not name:
             self.check(block=block)
@@ -130,8 +134,16 @@ class Ratelimit:
         return obj
 
     async def adecorate_object(
-        self, obj, name=None, wait=False, block=False, replace=False
+        self, obj=None, name="ratelimit", wait=False, block=False, replace=False
     ):
+        if not obj:
+            return functools.partial(
+                self.adecorate_object,
+                name=name,
+                wait=wait,
+                block=block,
+                replace=replace,
+            )
         # for decorate
         if not name:
             await self.acheck(wait=wait, block=block)

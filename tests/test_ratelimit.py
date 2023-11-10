@@ -113,12 +113,34 @@ class RatelimitTests(TestCase):
         self.assertEqual(r.request_limit, 1)
         obj = Foo()
         with self.assertRaises(ratelimit.RatelimitExceeded):
-            r.decorate_object(obj, block=True)
+            r.decorate_object(obj, name=None, block=True)
         self.assertFalse(hasattr(obj, "ratelimit"))
         with self.assertRaises(ratelimit.RatelimitExceeded):
-            r.decorate_object(obj, "ratelimit", block=False)
-            r.decorate_object(obj, "ratelimit", block=True)
+            r.decorate_object(obj, name=None, block=False)
+            r.decorate_object(obj, block=True)
         self.assertTrue(hasattr(obj, "ratelimit"))
+
+    def test_manual_decorate_fn(self):
+        @ratelimit.get_ratelimit(
+            group="test_manual_decorate_fn",
+            rate="2/m",
+            key=b"abc2",
+            action=ratelimit.Action.INCREASE,
+        ).decorate_object()
+        def fn():
+            pass
+
+    def test_manual_decorate_fn2(self):
+        r = ratelimit.get_ratelimit(
+            group="test_manual_decorate_fn",
+            rate="2/m",
+            key=b"abc2",
+            action=ratelimit.Action.INCREASE,
+        )
+
+        @r.decorate_object
+        def fn():
+            pass
 
     def test_reset(self):
         for i in range(0, 2):
@@ -334,7 +356,7 @@ class RatelimitTests(TestCase):
             )
         self.assertEqual(r.request_limit, 1)
         with self.assertRaises(ratelimit.RatelimitExceeded):
-            r.decorate_object(request, "ratelimit", block=True)
+            r.decorate_object(request, block=True)
         r = ratelimit.get_ratelimit(
             group="test_request",
             rate="1/s",

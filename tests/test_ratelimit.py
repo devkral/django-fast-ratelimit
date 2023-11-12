@@ -456,23 +456,23 @@ class RatelimitTests(TestCase):
                     r = None
                     for i in range(0, 4):
                         r = ratelimit.get_ratelimit(
-                            group="test_backends",
-                            rate="1/s",
+                            group="test_backends_implicit",
+                            rate="1/30s",
                             key=b"implicittest",
                         )
                         self.assertEqual(r.request_limit, 0)
 
                     for i in range(0, 2):
                         r = ratelimit.get_ratelimit(
-                            group="test_backends",
-                            rate="1/s",
+                            group="test_backends_implicit",
+                            rate="1/30s",
                             key=b"implicittest",
                             action=ratelimit.Action.INCREASE,
                         )
                     self.assertEqual(r.request_limit, 1)
                     r = ratelimit.get_ratelimit(
-                        group="test_backends",
-                        rate="1/s",
+                        group="test_backends_implicit",
+                        rate="1/30s",
                         key=b"implicittest",
                         action=ratelimit.Action.INCREASE,
                     )
@@ -486,8 +486,8 @@ class RatelimitTests(TestCase):
                     r = None
                     for i in range(0, 4):
                         r = ratelimit.get_ratelimit(
-                            group="test_backends",
-                            rate="1/s",
+                            group="test_backends_explicit",
+                            rate="1/30s",
                             key=b"explicittest",
                             cache=cache,
                         )
@@ -495,16 +495,16 @@ class RatelimitTests(TestCase):
 
                     for i in range(0, 2):
                         r = ratelimit.get_ratelimit(
-                            group="test_backends",
-                            rate="1/s",
+                            group="test_backends_explicit",
+                            rate="1/30s",
                             key=b"explicittest",
                             action=ratelimit.Action.INCREASE,
                             cache=cache,
                         )
                     self.assertEqual(r.request_limit, 1)
                     r = ratelimit.get_ratelimit(
-                        group="test_backends",
-                        rate="1/s",
+                        group="test_backends_explicit",
+                        rate="1/30s",
                         key=b"explicittest",
                         action=ratelimit.Action.INCREASE,
                         cache=cache,

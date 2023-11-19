@@ -19,7 +19,7 @@ from . import methods as rlimit_methods
 from ._epoch import areset_epoch, epoch_call_count, reset_epoch
 from .misc import ALL, Action, Disabled, Ratelimit, invertedset
 
-key_type = Union[str, tuple, list, bytes]
+key_type = Union[str, tuple, list, bytes, int, bool]
 rate_out_type = Union[str, tuple, list]
 
 _rate = re.compile(r"(\d+)/(\d+)?([smhdw])?")
@@ -536,11 +536,18 @@ def decorate(func: Optional[Callable] = None, **context):
 
             @functools.wraps(fn)
             async def _wrapper(request, *args, **kwargs):
-                nrlimit = await aget_ratelimit(
-                    request=request,
-                    action=Action.INCREASE,
-                    **context,
-                )
+                try:
+                    nrlimit = await aget_ratelimit(
+                        request=request,
+                        action=Action.INCREASE,
+                        **context,
+                    )
+                except Disabled as exc:
+                    # don't pass wait or block both are dangerous in this context
+                    await exc.ratelimit.adecorate_object(
+                        request, decorate_name, replace=replace
+                    )
+                    raise exc
                 await nrlimit.adecorate_object(
                     request,
                     decorate_name,
@@ -561,11 +568,18 @@ def decorate(func: Optional[Callable] = None, **context):
                 assert (
                     "wait" not in context
                 ), '"wait" is only for async functions/methods supported'
-                nrlimit = get_ratelimit(
-                    request=request,
-                    action=Action.INCREASE,
-                    **context,
-                )
+                try:
+                    nrlimit = get_ratelimit(
+                        request=request,
+                        action=Action.INCREASE,
+                        **context,
+                    )
+                except Disabled as exc:
+                    # don't pass block it is dangerous in this context
+                    exc.ratelimit.decorate_object(
+                        request, decorate_name, replace=replace
+                    )
+                    raise exc
                 nrlimit.decorate_object(
                     request, decorate_name, block=block, replace=replace
                 )

@@ -106,9 +106,10 @@ class DecoratorTests(TestCase):
     def test_disabled(self):
         func = ratelimit.decorate(rate="0/2s", key="ip")(func_beautyname)
 
+        r = self.factory.get("/home")
         with self.assertRaises(ratelimit.Disabled):
-            r = self.factory.get("/home")
             func(r)
+        self.assertTrue(hasattr(r, "ratelimit"))
 
         func = ratelimit.decorate(rate=(0, 1), key="ip")(func_beautyname)
 

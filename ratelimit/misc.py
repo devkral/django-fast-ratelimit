@@ -19,7 +19,7 @@ import time
 from dataclasses import dataclass, field
 from enum import Enum
 from math import inf
-from typing import Optional, Union
+from typing import Literal, Optional, Union
 
 from django.conf import settings
 from django.core.cache import BaseCache
@@ -45,9 +45,9 @@ if sys.version_info >= (3, 10):
 class Ratelimit:
     group: str
     count: int = 0
-    limit: Union[float, int] = inf
+    limit: Union[Literal[inf], int] = inf
     request_limit: int = 0
-    end: Union[float, int] = 0
+    end: int = 0
     cache: Optional[BaseCache] = field(
         default=None, compare=False, hash=False, repr=False
     )

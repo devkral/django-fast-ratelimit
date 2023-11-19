@@ -226,7 +226,7 @@ r = get_ratelimit(
 # manual way
 foo = r.decorate_object(Foo(), name="ratelimit")
 if not foo.ratelimit.check():
-    raise ratelimit.RatelimitExceeded(r)
+    raise ratelimit.RatelimitExceeded(r, "custom message")
 else:
     pass
     # do cool stuff
@@ -325,6 +325,24 @@ class O2gView(View):
         return HttpResponse()
 
 ```
+
+### ratelimit.RatelimitExceeded
+
+Raised when the ratelimit was exceeded
+
+Exception, first argument is the ratelimit itself.
+The next arguments are passed to the underlying standard exception class for e.g. customizing the error message
+
+### ratelimit.Disabled
+
+Stronger variant of RatelimitExceeded. Used for cases where limit is 0 and there is no way to pass the ratelimit.
+It is a shortcut for disabling api.
+
+Note: it is weaker than the setting `RATELIMIT_ENABLE`
+
+Note: it isn't a subclass from RatelimitExceeded because APIs should be able to differ both cases
+
+Note: in contrast to RatelimitExceeded it is raised in (a)get_ratelimit and when using decorate, the view function isn't called.
 
 ### ratelimit.protect_sync_only
 

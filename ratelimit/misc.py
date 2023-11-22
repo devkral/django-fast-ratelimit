@@ -58,7 +58,7 @@ class Ratelimit:
     def check(self, block=False):
         if self.request_limit > 0:
             if block:
-                raise RatelimitExceeded(self)
+                raise RatelimitExceeded(ratelimit=self)
             return False
         return True
 
@@ -69,7 +69,7 @@ class Ratelimit:
                 if remaining_dur > 0:
                     await asyncio.sleep(remaining_dur)
             if block:
-                raise RatelimitExceeded(self)
+                raise RatelimitExceeded(ratelimit=self)
             return False
         return True
 
@@ -121,7 +121,9 @@ class Ratelimit:
                         oldrlimit.waited_ms = self.waited_ms
             return getattr(obj, name)
 
-    def decorate_object(self, obj=None, name="ratelimit", block=False, replace=False):
+    def decorate_object(
+        self, obj=None, *, name="ratelimit", block=False, replace=False
+    ):
         if not obj:
             return functools.partial(
                 self.decorate_object, name=name, block=block, replace=replace
@@ -134,7 +136,7 @@ class Ratelimit:
         return obj
 
     async def adecorate_object(
-        self, obj=None, name="ratelimit", wait=False, block=False, replace=False
+        self, obj=None, *, name="ratelimit", wait=False, block=False, replace=False
     ):
         if not obj:
             return functools.partial(
@@ -169,7 +171,7 @@ UNSAFE = invertedset(SAFE)
 class RatelimitExceeded(PermissionDenied):
     ratelimit = None
 
-    def __init__(self, ratelimit: Ratelimit, *args):
+    def __init__(self, *args, ratelimit: Ratelimit):
         self.ratelimit = ratelimit
         super().__init__(*args)
 
@@ -177,13 +179,13 @@ class RatelimitExceeded(PermissionDenied):
 class Disabled(PermissionDenied):
     ratelimit = None
 
-    def __init__(self, ratelimit: Ratelimit, *args):
+    def __init__(self, *args, ratelimit: Ratelimit):
         self.ratelimit = ratelimit
         super().__init__(*args)
 
 
 @functools.lru_cache(maxsize=1)
-def get_RATELIMIT_TRUSTED_PROXY() -> frozenset:
+def get_RATELIMIT_TRUSTED_PROXY() -> Union[frozenset, invertedset]:
     s = getattr(settings, "RATELIMIT_TRUSTED_PROXIES", ["unix"])
     if s == "all":
         return invertedset()

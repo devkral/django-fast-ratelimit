@@ -158,13 +158,13 @@ def _(key):
 
 
 def get_ratelimit(
+    *,
     group: Union[str, Callable[[HttpRequest], str]],
     key: Union[
         key_type,
         Callable[[HttpRequest], key_type],
     ],
     rate: Union[rate_out_type, Callable[[HttpRequest, str], rate_out_type]],
-    *,
     request: Optional[HttpRequest] = None,
     methods: Union[
         str, Collection, Callable[[HttpRequest, str], Union[Collection, str]]
@@ -180,12 +180,10 @@ def get_ratelimit(
     """
     Get ratelimit information
 
-    Arguments:
+    Keyword Arguments:
         group {str|callable} -- [group name or callable (fun(request))]
         key {multiple} -- see Readme
         rate {multiple} -- see Readme
-
-    Keyword Arguments:
         request {request|None} -- django request (default: {None})
         methods {collection} -- affecte http operations (default: {ALL})
         action {ratelimit.Action} --
@@ -244,8 +242,8 @@ def get_ratelimit(
     # if rate is 0 or None, always block and sidestep cache
     if not rate[0]:
         raise Disabled(
-            Ratelimit(group=group, limit=rate[0], request_limit=1, end=0),
             "disabled by rate is None or 0",
+            ratelimit=Ratelimit(group=group, limit=rate[0], request_limit=1, end=0),
         )
 
     # sidestep cache (bool maps to int)
@@ -307,6 +305,7 @@ def get_ratelimit(
 
 
 async def aget_ratelimit(
+    *,
     group: Union[
         str,
         Awaitable[str],
@@ -322,7 +321,6 @@ async def aget_ratelimit(
         Awaitable[rate_out_type],
         Callable[[HttpRequest, str], Union[Awaitable[rate_out_type], rate_out_type]],
     ],
-    *,
     request: Optional[HttpRequest] = None,
     methods: Union[
         str,
@@ -344,12 +342,10 @@ async def aget_ratelimit(
     """
     Get ratelimit information
 
-    Arguments:
+    Keyword Arguments:
         group {str|callable} -- [group name or callable (fun(request))]
         key {multiple} -- see Readme
         rate {multiple} -- see Readme
-
-    Keyword Arguments:
         request {request|None} -- django request (default: {None})
         methods {collection} -- affecte http operations (default: {ALL})
         action {ratelimit.Action} --
@@ -420,8 +416,8 @@ async def aget_ratelimit(
     # if rate is 0 or None, always block and sidestep cache
     if not rate[0]:
         raise Disabled(
-            Ratelimit(group=group, limit=rate[0], request_limit=1, end=0),
             "disabled by rate is None or 0",
+            ratelimit=Ratelimit(group=group, limit=rate[0], request_limit=1, end=0),
         )
 
     # sidestep cache (bool maps to int)
@@ -545,12 +541,12 @@ def decorate(func: Optional[Callable] = None, **context):
                 except Disabled as exc:
                     # don't pass wait or block both are dangerous in this context
                     await exc.ratelimit.adecorate_object(
-                        request, decorate_name, replace=replace
+                        request, name=decorate_name, replace=replace
                     )
                     raise exc
                 await nrlimit.adecorate_object(
                     request,
-                    decorate_name,
+                    name=decorate_name,
                     wait=wait,
                     block=block,
                     replace=replace,
@@ -577,11 +573,11 @@ def decorate(func: Optional[Callable] = None, **context):
                 except Disabled as exc:
                     # don't pass block it is dangerous in this context
                     exc.ratelimit.decorate_object(
-                        request, decorate_name, replace=replace
+                        request, name=decorate_name, replace=replace
                     )
                     raise exc
                 nrlimit.decorate_object(
-                    request, decorate_name, block=block, replace=replace
+                    request, name=decorate_name, block=block, replace=replace
                 )
                 return fn(request, *args, **kwargs)
 

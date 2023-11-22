@@ -226,7 +226,7 @@ r = get_ratelimit(
 # manual way
 foo = r.decorate_object(Foo(), name="ratelimit")
 if not foo.ratelimit.check():
-    raise ratelimit.RatelimitExceeded(r, "custom message")
+    raise ratelimit.RatelimitExceeded("custom message", ratelimit=r)
 else:
     pass
     # do cool stuff
@@ -330,7 +330,7 @@ class O2gView(View):
 
 Raised when the ratelimit was exceeded
 
-Exception, first argument is the ratelimit itself.
+Exception, required keyword argument is ratelimit with the ratelimit.
 The next arguments are passed to the underlying standard exception class for e.g. customizing the error message
 
 ### ratelimit.Disabled

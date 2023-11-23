@@ -395,6 +395,8 @@ See in methods which methods are available. Here some of them:
 
 ## Update Notes:
 
+in version 4.0.0 most parameters were made keyword only (helps finding bugs).
+
 in version 3.0.0 the name parameter of (a)decorate_object was changed to ratelimit
 
 in version 2.0.0 the parameter `raise_on_limit` was removed and replaced by check(block=True)

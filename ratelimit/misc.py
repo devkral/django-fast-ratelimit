@@ -111,14 +111,10 @@ class Ratelimit:
                         setattr(obj, name, self)
                 elif oldrlimit.end > self.end:
                     self.request_limit += oldrlimit.request_limit
-                    if self.waited_ms < oldrlimit.waited_ms:
-                        self.waited_ms = oldrlimit.waited_ms
                     setattr(obj, name, self)
                 else:
                     # oldrlimit.end <= self.end
                     oldrlimit.request_limit += self.request_limit
-                    if oldrlimit.waited_ms < self.waited_ms:
-                        oldrlimit.waited_ms = self.waited_ms
             return getattr(obj, name)
 
     def decorate_object(

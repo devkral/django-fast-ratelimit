@@ -7,7 +7,7 @@ import hashlib
 import re
 import time
 from collections.abc import Callable, Collection
-from inspect import isawaitable, iscoroutinefunction
+from inspect import isawaitable
 from typing import Any, Awaitable, Optional, Union
 
 from django.conf import settings
@@ -489,6 +489,57 @@ def o2g(obj):
     return ".".join(parts)
 
 
+async def _chain_async_decorate(
+    *, request, fn, args, kwargs, context, decorate_name, replace, wait, block
+):
+    try:
+        nrlimit = await aget_ratelimit(
+            request=request,
+            action=Action.INCREASE,
+            **context,
+        )
+    except Disabled as exc:
+        # don't pass wait or block both are dangerous in this context
+        await exc.ratelimit.adecorate_object(
+            request, name=decorate_name, replace=replace
+        )
+        raise exc
+    await nrlimit.adecorate_object(
+        request,
+        name=decorate_name,
+        wait=wait,
+        block=block,
+        replace=replace,
+    )
+    retobj = fn(request, *args, **kwargs)
+
+    if isawaitable(retobj):
+        return await retobj
+    return retobj
+
+
+def _chain_sync_decorate(
+    *, request, fn, args, kwargs, context, decorate_name, replace, block
+):
+    try:
+        nrlimit = get_ratelimit(
+            request=request,
+            action=Action.INCREASE,
+            **context,
+        )
+    except Disabled as exc:
+        # don't pass wait or block both are dangerous in this context
+        exc.ratelimit.decorate_object(request, name=decorate_name, replace=replace)
+        raise exc
+    nrlimit.decorate_object(
+        request,
+        name=decorate_name,
+        block=block,
+        replace=replace,
+    )
+    return fn(request, *args, **kwargs)
+
+
 def decorate(func: Optional[Callable] = None, **context):
     assert context.get("key")
     assert context.get("rate")
@@ -496,6 +547,10 @@ def decorate(func: Optional[Callable] = None, **context):
     assert "action" not in context
     block = context.pop("block", False)
     replace = context.pop("replace", False)
+    force_async = context.pop("force_async", None)
+    wait = context.pop("wait", False)
+    if force_async is None and wait:
+        force_async = True
     decorate_name = context.pop("decorate_name", "ratelimit")
     if "methods" not in context:
         context["methods"] = ALL
@@ -522,66 +577,44 @@ def decorate(func: Optional[Callable] = None, **context):
                 context["key"] = True
         if isinstance(context["key"], (str, tuple, list)):
             context["key"] = _retrieve_key_func(context["key"])
-        fntocheck = fn
-        if hasattr(fntocheck, "func"):
-            fntocheck = fntocheck.func
-        if hasattr(fntocheck, "__func__"):
-            fntocheck = fntocheck.__func__
-        if iscoroutinefunction(fntocheck):
-            wait = context.pop("wait", False)
 
-            @functools.wraps(fn)
-            async def _wrapper(request, *args, **kwargs):
-                try:
-                    nrlimit = await aget_ratelimit(
-                        request=request,
-                        action=Action.INCREASE,
-                        **context,
-                    )
-                except Disabled as exc:
-                    # don't pass wait or block both are dangerous in this context
-                    await exc.ratelimit.adecorate_object(
-                        request, name=decorate_name, replace=replace
-                    )
-                    raise exc
-                await nrlimit.adecorate_object(
-                    request,
-                    name=decorate_name,
+        @functools.wraps(fn)
+        def _wrapper(request, *args, **kwargs):
+            # one level above with method_decorator a non-async wrapper
+            # is created and discarded, so check only on the first call
+            try:
+                asyncio.get_running_loop()
+                is_async = True
+            except RuntimeError:
+                is_async = False
+            assert (
+                not force_async or is_async
+            ), "non async context and force_async specified or wait specified and force_async != False"
+            if is_async:
+                return _chain_async_decorate(
+                    request=request,
+                    fn=fn,
+                    args=args,
+                    kwargs=kwargs,
+                    context=context,
+                    decorate_name=decorate_name,
+                    replace=replace,
                     wait=wait,
                     block=block,
+                )
+            else:
+                return _chain_sync_decorate(
+                    request=request,
+                    fn=fn,
+                    args=args,
+                    kwargs=kwargs,
+                    context=context,
+                    decorate_name=decorate_name,
                     replace=replace,
+                    block=block,
                 )
-                return await fn(request, *args, **kwargs)
 
-            return _wrapper
-
-        else:
-
-            @functools.wraps(fn)
-            def _wrapper(request, *args, **kwargs):
-                # one level above with method_decorator a non-async wrapper
-                # is created and discarded, so check only on the first call
-                assert (
-                    "wait" not in context
-                ), '"wait" is only for async functions/methods supported'
-                try:
-                    nrlimit = get_ratelimit(
-                        request=request,
-                        action=Action.INCREASE,
-                        **context,
-                    )
-                except Disabled as exc:
-                    # don't pass block it is dangerous in this context
-                    exc.ratelimit.decorate_object(
-                        request, name=decorate_name, replace=replace
-                    )
-                    raise exc
-                nrlimit.decorate_object(
-                    request, name=decorate_name, block=block, replace=replace
-                )
-                return fn(request, *args, **kwargs)
-
-            return _wrapper
+        return _wrapper
 
     if func:
         return _decorate(func)

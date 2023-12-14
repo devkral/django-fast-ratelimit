@@ -117,6 +117,35 @@ class DecoratorTests(TestCase):
             r = self.factory.get("/home")
             func(r)
 
+    def test_force_async(self):
+        with self.subTest("explicit force_async"):
+            func = ratelimit.decorate(
+                rate="2/2s", key="ip", group="force_async1", force_async=True
+            )(func_beautyname)
+
+            with self.assertRaises(AssertionError):
+                r = self.factory.get("/home")
+                func(r)
+
+        with self.subTest("implicit force_async"):
+            func = ratelimit.decorate(
+                rate="2/2s", key="ip", group="force_async2", wait=True
+            )(func_beautyname)
+            with self.assertRaises(AssertionError):
+                r = self.factory.get("/home")
+                func(r)
+        with self.subTest("disabled force_async"):
+            func = ratelimit.decorate(
+                rate="2/2s",
+                key="ip",
+                group="force_async3",
+                wait=True,
+                force_async=False,
+            )(func_beautyname)
+
+            r = self.factory.get("/home")
+            func(r)
+
     def test_view(self):
         r = self.factory.get("/home")
         BogoView.as_view()(r)

@@ -186,7 +186,6 @@ Fields
 -   end: when does the block end
 -   group: group name
 -   group_key, cache: Optional, when specified reset and areset can be used, internal fields
--   waited_ms: internal field, stores info how long was waited, in ms instead of rate seconds
 
 Functions:
 
@@ -272,9 +271,8 @@ Also supports:
 
 -   block: should hard block with an RatelimitExceeded exception (subclass of PermissionDenied) or only annotate request with ratelimit
 -   decorate_name: under what name the ratelimit is attached to the request. set to None/empty to not decorate request. Uses Ratelimit.decorate_object. Defaults to "ratelimit"
--   wait (only async functions): suspends execution
-
-Note: wait is tricky with method_decorator: you must ensure that the function decorated is async
+-   wait (only when async possible): suspends execution, triggers force_async when not specified
+-   force_async: fail when not called in an async context, can be set to False, to not fail in sync context, or to True to fail always when in sync only context
 
 why only async methods have wait? It doesn't really block (only the userlandthread). In contrast to its sync equivalent it doesn't block the webserver significantly
 
@@ -406,6 +404,3 @@ in version 1.0.0 the parameter `include_reset` was removed
 in version 1.2.0 reset_epoch calls return the counter before reset instead of the count after
 
 ## TODO:
-
--   document and test wait parameter
--   improve documentation decorate_name and decorate_object

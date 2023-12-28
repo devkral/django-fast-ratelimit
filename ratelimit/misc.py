@@ -159,7 +159,7 @@ class invertedset(frozenset):
         return not super().__contains__(item)
 
 
-ALL = invertedset([])
+ALL = invertedset()
 SAFE = frozenset(["GET", "HEAD", "OPTIONS"])
 UNSAFE = invertedset(SAFE)
 
@@ -181,10 +181,10 @@ class Disabled(PermissionDenied):
 
 
 @functools.lru_cache(maxsize=1)
-def get_RATELIMIT_TRUSTED_PROXY() -> Union[frozenset, invertedset]:
+def get_RATELIMIT_TRUSTED_PROXY() -> Union[frozenset, ALL]:
     s = getattr(settings, "RATELIMIT_TRUSTED_PROXIES", ["unix"])
     if s == "all":
-        return invertedset()
+        return ALL
     else:
         return frozenset(s)
 

@@ -180,15 +180,6 @@ class Disabled(PermissionDenied):
         super().__init__(*args)
 
 
-@functools.lru_cache(maxsize=1)
-def get_RATELIMIT_TRUSTED_PROXY() -> Union[frozenset, ALL]:
-    s = getattr(settings, "RATELIMIT_TRUSTED_PROXIES", ["unix"])
-    if s == "all":
-        return ALL
-    else:
-        return frozenset(s)
-
-
 def protect_sync_only(fn):
     @functools.wraps(fn)
     def inner(*args):
@@ -199,6 +190,15 @@ def protect_sync_only(fn):
         return loop.run_in_executor(None, fn, *args)
 
     return inner
+
+
+@functools.lru_cache(maxsize=1)
+def get_RATELIMIT_TRUSTED_PROXY() -> Union[frozenset, invertedset]:
+    s = getattr(settings, "RATELIMIT_TRUSTED_PROXIES", ["unix"])
+    if s == "all":
+        return ALL
+    else:
+        return frozenset(s)
 
 
 _forwarded_regex = re.compile(r'for="?([^";, ]+)', re.IGNORECASE)

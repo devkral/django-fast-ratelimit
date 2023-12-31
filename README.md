@@ -141,7 +141,7 @@ async def func(request):
     Note: if count (first argument) is 0, then it raises the Disabled exception, the second argument must be greater then 0
     -   str: default mode , specify rate in form of "1/4s" or "2/s" or "2/m"
     -   2 element tuple/list: first argument is amount, second are seconds
-    -   callable: can return of two
+    -   callable: can return either string or 2 element tuple/list
 -   methods: set of checked methods, can be callable (fun(request, group)), modes:
     -   callable(request, group): allow dynamic
     -   ratelimit.ALL (default): all methods are checked

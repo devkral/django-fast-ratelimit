@@ -2,6 +2,7 @@ import hashlib
 import time
 import types
 import unittest
+from functools import partial, singledispatch
 
 from django import VERSION
 from django.contrib.auth.models import AnonymousUser
@@ -14,6 +15,16 @@ from ratelimit._core import (
     _retrieve_key_func,
     parse_rate,
 )
+
+
+@singledispatch
+def fake_key_function(request, group, arg1="fake1", arg2=""):
+    return "".join((arg1, arg2))
+
+
+@fake_key_function.register
+def _(arg1: str, arg2: str = ""):
+    return partial(fake_key_function, arg1=arg1, arg2=arg2)
 
 
 class ConstructionTests(TestCase):
@@ -32,6 +43,29 @@ class ConstructionTests(TestCase):
     def test_keyfunc_retrieval(self):
         self.assertIsInstance(_retrieve_key_func("ip"), types.FunctionType)
         _retrieve_key_func("ip")(self.factory.get("/home"), "foo")
+        self.assertIsInstance(
+            _retrieve_key_func("tests.test_ratelimit.fake_key_function"),
+            types.FunctionType,
+        )
+        self.assertEqual(
+            _retrieve_key_func("tests.test_ratelimit.fake_key_function")(
+                self.factory.get("/home"), "foo"
+            ),
+            "fake1",
+        )
+        self.assertEqual(
+            _retrieve_key_func("tests.test_ratelimit.fake_key_function:fake2")(
+                self.factory.get("/home"), "foo"
+            ),
+            "fake2",
+        )
+
+        self.assertEqual(
+            _retrieve_key_func(("tests.test_ratelimit.fake_key_function", "fake", "2"))(
+                self.factory.get("/home"), "foo"
+            ),
+            "fake2",
+        )
 
     def testparse_rate(self):
         for rate in [

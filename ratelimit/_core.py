@@ -15,7 +15,6 @@ from django.core.cache import caches
 from django.http import HttpRequest
 from django.utils.module_loading import import_string
 
-from . import methods as rlimit_methods
 from ._epoch import areset_epoch, epoch_call_count, reset_epoch
 from .misc import ALL, Action, Disabled, Ratelimit, invertedset
 
@@ -114,26 +113,11 @@ def _retrieve_key_func(key):
     raise ValueError("Key type is invalid")
 
 
-@_retrieve_key_func.register(str)
-def _(key):
-    key = key.split(":", 1)
-    if "." not in key[0]:
-        assert not key[0].startswith("_"), "should not start with _"
-        impname = "ratelimit.methods.%s" % key[0]
-    else:
-        impname = key[0]
-    fun = import_string(impname)
-    if len(key) == 2:
-        return fun(key[1])
-    if hasattr(fun, "dispatch"):
-        fun = fun.dispatch(HttpRequest)
-    return fun
-
-
 @_retrieve_key_func.register(list)
 @_retrieve_key_func.register(tuple)
 def _(key):
     if "." not in key[0]:
+        assert not key[0].startswith("_"), "should not start with _"
         impname = "ratelimit.methods.%s" % key[0]
     else:
         impname = key[0]
@@ -147,14 +131,7 @@ def _(key):
 
 @_retrieve_key_func.register(str)
 def _(key):
-    _key = key.split(":", 1)
-    if _key[0] in rlimit_methods.__all__:
-        if len(_key) == 2:
-            return getattr(rlimit_methods, _key[0])(_key[1])
-        else:
-            return getattr(rlimit_methods, _key[0])
-    else:
-        raise ValueError("Invalid cache key function")
+    return _retrieve_key_func(key.split(":", 1))
 
 
 def get_ratelimit(

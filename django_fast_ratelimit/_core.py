@@ -118,7 +118,7 @@ def _retrieve_key_func(key):
 def _(key):
     if "." not in key[0]:
         assert not key[0].startswith("_"), "should not start with _"
-        impname = "ratelimit.methods.%s" % key[0]
+        impname = "django_fast_ratelimit.methods.%s" % key[0]
     else:
         impname = key[0]
     fun = import_string(impname)

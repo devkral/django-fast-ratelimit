@@ -13,12 +13,18 @@ pip install django-fast-ratelimit
 
 Note: pip >= 19 is required
 
+Note: version 5 renames package from ratelimit to django_fast_ratelimit
+
 ## usage
+
+Apply everywhere where wanted in the django app without restrictions:
+
+install companion library django-fast-iprestrict >= 0.6.0
 
 Decorator:
 
 ```python
-import ratelimit
+import django_fast_ratelimit as ratelimit
 
 @ratelimit.decorate(key="ip", rate="1/s")
 def expensive_func(request):
@@ -32,7 +38,7 @@ def expensive_func(request):
 or async
 
 ```python
-import ratelimit
+import django_fast_ratelimit as ratelimit
 import asyncio
 
 @ratelimit.decorate(key="ip", rate="1/s")
@@ -47,7 +53,7 @@ async def expensive_func(request):
 blocking Decorator (raises RatelimitError):
 
 ```python
-import ratelimit
+import django_fast_ratelimit as ratelimit
 
 @ratelimit.decorate(key="ip", rate="1/s", block=True, decorate_name="ratelimit", methods=ratelimit.UNSAFE)
 def expensive_func(request):
@@ -59,7 +65,7 @@ def expensive_func(request):
 decorate View (requires group):
 
 ```python
-import ratelimit
+import django_fast_ratelimit as ratelimit
 from django.views.generic import View
 from django.utils.decorators import method_decorator
 
@@ -75,7 +81,7 @@ class FooView(View):
 manual
 
 ```python
-import ratelimit
+import django_fast_ratelimit as ratelimit
 
 
 def func(request):
@@ -114,7 +120,7 @@ def func(request):
 manual async
 
 ```python
-import ratelimit
+import django_fast_ratelimit as ratelimit
 
 
 async def func(request):
@@ -392,6 +398,9 @@ See in methods which methods are available. Here some of them:
     Used headers are: `Forwarded`, `X-Forwarded-For`
 
 ## Update Notes:
+
+in version 5.0.0 the package was renamed to django_fast_ratelimit for having an unique namespace. Reason, we have now a companion library: django-fast-iprestrict
+Sorry for the big breaking change.
 
 in version 4.0.0 most parameters were made keyword only (helps finding bugs).
 

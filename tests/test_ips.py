@@ -1,12 +1,7 @@
+from django.test import RequestFactory, TestCase, override_settings
 from faker import Faker
 
-from django.test import (
-    TestCase,
-    RequestFactory,
-    override_settings,
-)
-
-from ratelimit.misc import get_ip, get_RATELIMIT_TRUSTED_PROXY
+from django_fast_ratelimit.misc import get_ip, get_RATELIMIT_TRUSTED_PROXY
 
 faker = Faker()
 
@@ -82,9 +77,7 @@ class IpTests(TestCase):
                     )
                 else:
                     addr2 = addr
-                    address_x_forwarded_for = '{}:42,"[{}]"'.format(
-                        addr2, faker.ipv6()
-                    )
+                    address_x_forwarded_for = '{}:42,"[{}]"'.format(addr2, faker.ipv6())
                 request = self.factory.get(
                     "/customer/details",
                     REMOTE_ADDR=remote_addr,
@@ -94,14 +87,10 @@ class IpTests(TestCase):
             with self.subTest("x-forwarded-for2", addr=addr):
                 if count == 1:
                     addr2 = f"[{addr}]"
-                    address_x_forwarded_for = '"{}","[{}]"'.format(
-                        addr2, faker.ipv6()
-                    )
+                    address_x_forwarded_for = '"{}","[{}]"'.format(addr2, faker.ipv6())
                 else:
                     addr2 = addr
-                    address_x_forwarded_for = '{},"[{}]"'.format(
-                        addr2, faker.ipv6()
-                    )
+                    address_x_forwarded_for = '{},"[{}]"'.format(addr2, faker.ipv6())
                 request = self.factory.get(
                     "/customer/details",
                     REMOTE_ADDR=remote_addr,

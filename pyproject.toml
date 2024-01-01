@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "django-fast-ratelimit"
 description = "Fast ratelimit implementation with django caches"
-version = "4.1.1"
+version = "5.0.0"
 license = "MIT"
 authors = ["Alexander Kaftan"]
 readme = "README.md"
@@ -13,13 +13,11 @@ classifiers = [
   "License :: OSI Approved :: MIT License",
   "Programming Language :: Python :: 3 :: Only"
 ]
-packages = [
-  { include = "ratelimit" },
-]
 
 [tool.poetry.dependencies]
 python = ">=3.9,<4.0"
 django = ">=3.0"
+django-fast-iprestrict = {version = ">=0.4", optional=True}
 
 [tool.poetry.group.test.dependencies]
 tox = "*"

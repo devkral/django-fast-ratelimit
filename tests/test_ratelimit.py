@@ -8,8 +8,8 @@ from django import VERSION
 from django.contrib.auth.models import AnonymousUser
 from django.test import RequestFactory, TestCase, override_settings
 
-import ratelimit
-from ratelimit._core import (
+import django_fast_ratelimit as ratelimit
+from django_fast_ratelimit._core import (
     _get_cache_key,
     _get_group_hash,
     _retrieve_key_func,

@@ -7,7 +7,7 @@ from django.test import RequestFactory, TestCase
 from django.utils.decorators import method_decorator
 from django.views.generic import View
 
-import ratelimit
+import django_fast_ratelimit as ratelimit
 
 
 def func_beautyname(request):

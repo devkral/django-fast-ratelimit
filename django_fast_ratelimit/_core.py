@@ -112,11 +112,12 @@ def _(rate) -> tuple[int, int]:
 def hardened_import_string(dotted_path):
     """check also __all__ for intended imports"""
     module_path, fn_name = dotted_path.rsplit(".", 1)
-    if fn_name.startswith("_"):
-        raise ValueError("should not start with _")
     module = import_module(module_path)
-    if hasattr(module, "__all__") and fn_name not in module.__all__:
-        raise ValueError(f"__all__ does not contain {fn_name}")
+    if hasattr(module, "__all__"):
+        if fn_name not in module.__all__:
+            raise ValueError(f"__all__ does not contain {fn_name}")
+    elif fn_name.startswith("_"):
+        raise ValueError("should not start with _ (except when in __all__)")
     return getattr(module, fn_name)
 
 

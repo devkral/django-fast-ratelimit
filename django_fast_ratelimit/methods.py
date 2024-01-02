@@ -1,50 +1,75 @@
 __all__ = ["user_or_ip", "user_and_ip", "ip", "user", "get"]
 
 import functools
-import ipaddress as _ipaddress
+from typing import Optional
 
 from django.http import HttpRequest
 
 from .misc import get_ip as _get_ip
+from .misc import parse_ip_to_net as _parse_ip_to_net
 from .misc import protect_sync_only as _protect_sync_only
 
 
-@functools.singledispatch
-def user_or_ip(request: HttpRequest, group):
+def _ip_to_net(args=None):
+    if not args or args is True:
+        args = (128,)
+
+    if isinstance(args, str):
+        args = args.split("/")
+    args = tuple(map(int, args))
+    assert len(args) <= 2
+    if len(args) == 1:
+        assert args[0] >= 0
+        assert args[0] <= 128
+
+        def _(request):
+            net, _ = _parse_ip_to_net(_get_ip(request))
+            return net.supernet(new_prefix=args[0])
+
+    else:
+        assert args[0] >= 0
+        assert args[0] <= 32
+        assert args[1] >= 0
+        assert args[1] <= 128
+
+        def _(request):
+            net, is_ipv4 = _parse_ip_to_net(_get_ip(request))
+            if is_ipv4:
+                raise
+                return net.supernet(new_prefix=96 + args[0])
+
+            else:
+                return net.supernet(new_prefix=args[1])
+
+
+def _get_user_pk_as_str(request) -> Optional[str]:
     if request.user.is_authenticated:
         return str(request.user.pk)
-    return _ipaddress.ip_network(_get_ip(request), strict=False).compressed
+    return None
+
+
+@functools.singledispatch
+@_protect_sync_only
+def user_or_ip(request: HttpRequest, group):
+    user = _get_user_pk_as_str(request)
+    if user is not None:
+        return user
+    net, is_ipv4 = _parse_ip_to_net(_get_ip(request))
+    return net.exploded
 
 
 @user_or_ip.register(str)
-def _(netmask):
-    # ipv4, ipv6, default ipv6 (ipv4 is too fragmented)
-    netmask = netmask.split("/", 1)
-    # turn mask into difference:
-    if len(netmask) == 1:
-        netmask = (0, int(netmask[0]))
-    return user_or_ip()
-
-
 @user_or_ip.register(list)
 @user_or_ip.register(tuple)
 def _(netmask):
-    netmask = (32 - int(netmask[0]), 128 - int(netmask[1]))
-    assert netmask[0] >= 0
-    assert netmask[1] >= 0
-    if netmask == (32, 128):
-        return user_or_ip.dispatch(HttpRequest)
+    ip_fn = _ip_to_net(netmask)
 
     def _(request, group):
         if request.user.is_authenticated:
             return str(request.user.pk)
-        ipnet = _ipaddress.ip_network(_get_ip(request), strict=False)
-        if ipnet.version == 4:
-            return ipnet.supernet(netmask[0]).compressed
-        else:
-            return ipnet.supernet(netmask[1]).compressed
+        return ip_fn(request).exploded
 
-    return _
+    return _protect_sync_only(_)
 
 
 @functools.singledispatch
@@ -61,19 +86,9 @@ def _(config):
         headers.remove("REMOTE_ADDR")
         if not netmask:
             netmask = True
-    if isinstance(netmask, str):
-        netmask = netmask.split("/", 1)
-    # netmask[0] ipv4 netmask, netmask[1] ipv6 netmask
-    if isinstance(netmask, (tuple, list)):
-        # turn mask into difference:
-        if len(netmask) == 1:
-            netmask = (0, 128 - int(netmask[0]))
-        else:
-            netmask = (32 - int(netmask[0]), 128 - int(netmask[1]))
-        assert netmask[0] >= 0
-        assert netmask[1] >= 0
-    if netmask == (32, 128):
-        netmask = True
+    ip_fn = None
+    if netmask:
+        ip_fn = _ip_to_net(netmask)
 
     headers = list(sorted(headers))
     session_keys = list(sorted(set(config.get("SESSION", []))))
@@ -84,18 +99,12 @@ def _(config):
     assert isinstance(check_user, bool), "USER is only boolean"
 
     def _generate_key(request):
-        if netmask is True:
-            ip = _get_ip(request)
-            yield _ipaddress.ip_network(ip, strict=False).compressed
-        elif netmask:
-            ip = _get_ip(request)
-            ipnet = _ipaddress.ip_network(ip, strict=False)
-            if ipnet.version == 4:
-                yield ipnet.supernet(netmask[0]).compressed
-            else:
-                yield ipnet.supernet(netmask[1]).compressed
-        if check_user and request.user.is_authenticated:
-            str(request.user.pk)
+        if ip_fn:
+            yield ip_fn(request).exploded
+        if check_user:
+            user = _get_user_pk_as_str(request)
+            if user is not None:
+                yield user
         for arg in session_keys:
             if arg is None:
                 if request.session.session_key:
@@ -153,7 +162,7 @@ def user_and_ip(request: HttpRequest, group):
 
 @user_and_ip.register(str)
 def _(netmask):
-    return get({"IP": netmask or True, "USER": True})
+    return get({"IP": netmask, "USER": True})
 
 
 user = get({"USER": True})

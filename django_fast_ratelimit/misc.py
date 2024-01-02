@@ -9,10 +9,12 @@ __all__ = [
     "protect_sync_only",
     "get_RATELIMIT_TRUSTED_PROXY",
     "get_ip",
+    "parse_ip_to_net",
 ]
 
 import asyncio
 import functools
+import ipaddress
 import re
 import sys
 import time
@@ -235,3 +237,13 @@ def get_ip(request: HttpRequest):
         client_ip = _ip6_port_cleanup_regex.sub("", client_ip).strip("[]")
 
     return client_ip
+
+
+@functools.lru_cache(maxsize=256)
+def parse_ip_to_net(ip):
+    ip = ipaddress.ip_network(ip, strict=False)
+    is_ipv4 = False
+    if isinstance(ip, ipaddress.IPv4Network):
+        ip = ipaddress.IPv6Network(f"::ffff:{ip.network_address}/128", strict=False)
+        is_ipv4 = True
+    return ip, is_ipv4

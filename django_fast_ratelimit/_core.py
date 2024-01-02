@@ -7,13 +7,13 @@ import hashlib
 import re
 import time
 from collections.abc import Callable, Collection
+from importlib import import_module
 from inspect import isawaitable
 from typing import Any, Awaitable, Optional, Union
 
 from django.conf import settings
 from django.core.cache import caches
 from django.http import HttpRequest
-from django.utils.module_loading import import_string
 
 from ._epoch import areset_epoch, epoch_call_count, reset_epoch
 from .misc import ALL, Action, Disabled, Ratelimit, invertedset
@@ -108,6 +108,18 @@ def _(rate) -> tuple[int, int]:
     return rate
 
 
+@functools.lru_cache(maxsize=32, typed=False)
+def hardened_import_string(dotted_path):
+    """check also __all__ for intended imports"""
+    module_path, fn_name = dotted_path.rsplit(".", 1)
+    if fn_name.startswith("_"):
+        raise ValueError("should not start with _")
+    module = import_module(module_path)
+    if hasattr(module, "__all__") and fn_name not in module.__all__:
+        raise ValueError(f"__all__ does not contain {fn_name}")
+    return getattr(module, fn_name)
+
+
 @functools.singledispatch
 def _retrieve_key_func(key):
     raise ValueError("Key type is invalid")
@@ -117,12 +129,10 @@ def _retrieve_key_func(key):
 @_retrieve_key_func.register(tuple)
 def _(key):
     if "." not in key[0]:
-        if key[0].startswith("_"):
-            raise ValueError("should not start with _")
         impname = "django_fast_ratelimit.methods.%s" % key[0]
     else:
         impname = key[0]
-    fun = import_string(impname)
+    fun = hardened_import_string(impname)
     if len(key) > 1:
         return fun(*key[1:])
     if hasattr(fun, "dispatch"):

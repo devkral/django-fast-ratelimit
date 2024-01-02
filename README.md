@@ -399,6 +399,8 @@ See in methods which methods are available. Here some of them:
 
 ## Update Notes:
 
+in version 6.0.0 some small new restrictions are introduces for key functions as string
+
 in version 5.0.0 the package was renamed to django_fast_ratelimit for having an unique namespace. Reason, we have now a companion library: django-fast-iprestrict
 Sorry for the big breaking change.
 

@@ -42,7 +42,7 @@ def _ip_to_net(args=None):
                 return net.supernet(new_prefix=args[1])
 
 
-def _get_user_pk_as_str(request) -> Optional[str]:
+def _get_user_pk_as_str_or_none(request) -> Optional[str]:
     if request.user.is_authenticated:
         return str(request.user.pk)
     return None
@@ -51,8 +51,8 @@ def _get_user_pk_as_str(request) -> Optional[str]:
 @functools.singledispatch
 @_protect_sync_only
 def user_or_ip(request: HttpRequest, group):
-    user = _get_user_pk_as_str(request)
-    if user is not None:
+    user = _get_user_pk_as_str_or_none(request)
+    if user:
         return user
     net, is_ipv4 = _parse_ip_to_net(_get_ip(request))
     return net.exploded
@@ -65,8 +65,34 @@ def _(netmask):
     ip_fn = _ip_to_net(netmask)
 
     def _(request, group):
-        if request.user.is_authenticated:
-            return str(request.user.pk)
+        user = _get_user_pk_as_str_or_none(request)
+        if user:
+            return user
+        return ip_fn(request).exploded
+
+    return _protect_sync_only(_)
+
+
+@functools.singledispatch
+@_protect_sync_only
+def ip_exempt_user(request: HttpRequest, group):
+    user = _get_user_pk_as_str_or_none(request)
+    if user:
+        return 0
+    net, is_ipv4 = _parse_ip_to_net(_get_ip(request))
+    return net.exploded
+
+
+@ip_exempt_user.register(str)
+@ip_exempt_user.register(list)
+@ip_exempt_user.register(tuple)
+def _(netmask):
+    ip_fn = _ip_to_net(netmask)
+
+    def _(request, group):
+        user = _get_user_pk_as_str_or_none(request)
+        if user:
+            return 0
         return ip_fn(request).exploded
 
     return _protect_sync_only(_)
@@ -102,8 +128,8 @@ def _(config):
         if ip_fn:
             yield ip_fn(request).exploded
         if check_user:
-            user = _get_user_pk_as_str(request)
-            if user is not None:
+            user = _get_user_pk_as_str_or_none(request)
+            if user:
                 yield user
         for arg in session_keys:
             if arg is None:

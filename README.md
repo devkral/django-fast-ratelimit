@@ -384,7 +384,8 @@ See in methods which methods are available. Here some of them:
 -   user: authenticated user primary key or b""
 -   user_or_ip: use autenticated user primary key as key. If not autenticated fallback to ip, also with netmask argument
 -   user_and_ip: same like user_or_ip except that the ip matching also applies for authenticated users
--   ip_exempt_user: same like user_or_ip except that authenticated users are exempted
+-   ip_exempt_user: same like user_or_ip except that authenticated users are exempted, also with netmask argument
+-   ip_exempt_privileged: same like ip_exempt_user except that authenticated users with staff or superuser flags are exempted, also with netmask argument
 -   get: generate key from multiple sources, input can be multiple input args or a dict with options
 
 ## settings

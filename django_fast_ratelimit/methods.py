@@ -1,4 +1,12 @@
-__all__ = ["user_or_ip", "user_and_ip", "ip", "user", "get"]
+__all__ = [
+    "user_or_ip",
+    "user_and_ip",
+    "ip",
+    "user",
+    "get",
+    "ip_exempt_user",
+    "ip_exempt_privileged",
+]
 
 import functools
 from typing import Optional
@@ -26,6 +34,8 @@ def _ip_to_net(args=None):
             net, _ = _parse_ip_to_net(_get_ip(request))
             return net.supernet(new_prefix=args[0])
 
+        return _
+
     else:
         assert args[0] >= 0
         assert args[0] <= 32
@@ -35,17 +45,31 @@ def _ip_to_net(args=None):
         def _(request):
             net, is_ipv4 = _parse_ip_to_net(_get_ip(request))
             if is_ipv4:
-                raise
                 return net.supernet(new_prefix=96 + args[0])
 
             else:
                 return net.supernet(new_prefix=args[1])
 
+        return _
+
 
 def _get_user_pk_as_str_or_none(request) -> Optional[str]:
+    if not hasattr(request, "user"):
+        return None
     if request.user.is_authenticated:
         return str(request.user.pk)
     return None
+
+
+def _get_user_privileged(request) -> Optional[str]:
+    if not hasattr(request, "user"):
+        return False
+    if request.user.is_authenticated and (
+        getattr(request.user, "is_staff", False)
+        or getattr(request.user, "is_superuser", False)
+    ):
+        return True
+    return False
 
 
 @functools.singledispatch
@@ -76,8 +100,7 @@ def _(netmask):
 @functools.singledispatch
 @_protect_sync_only
 def ip_exempt_user(request: HttpRequest, group):
-    user = _get_user_pk_as_str_or_none(request)
-    if user:
+    if _get_user_pk_as_str_or_none(request):
         return 0
     net, is_ipv4 = _parse_ip_to_net(_get_ip(request))
     return net.exploded
@@ -90,8 +113,30 @@ def _(netmask):
     ip_fn = _ip_to_net(netmask)
 
     def _(request, group):
-        user = _get_user_pk_as_str_or_none(request)
-        if user:
+        if _get_user_pk_as_str_or_none(request):
+            return 0
+        return ip_fn(request).exploded
+
+    return _protect_sync_only(_)
+
+
+@functools.singledispatch
+@_protect_sync_only
+def ip_exempt_privileged(request: HttpRequest, group):
+    if _get_user_privileged(request):
+        return 0
+    net, is_ipv4 = _parse_ip_to_net(_get_ip(request))
+    return net.exploded
+
+
+@ip_exempt_privileged.register(str)
+@ip_exempt_privileged.register(list)
+@ip_exempt_privileged.register(tuple)
+def _(netmask):
+    ip_fn = _ip_to_net(netmask)
+
+    def _(request, group):
+        if _get_user_privileged(request):
             return 0
         return ip_fn(request).exploded
 
@@ -126,7 +171,8 @@ def _(config):
 
     def _generate_key(request):
         if ip_fn:
-            yield ip_fn(request).exploded
+            ip = ip_fn(request)
+            yield ip.exploded
         if check_user:
             user = _get_user_pk_as_str_or_none(request)
             if user:
@@ -158,6 +204,8 @@ def _(config):
 
 @get.register(str)
 def _(*args):
+    if len(args) == 1:
+        args = args[0].split(",")
     g = {
         "IP": False,
         "USER": False,
@@ -200,5 +248,7 @@ def ip(request: HttpRequest, group):
 
 
 @ip.register(str)
+@ip.register(list)
+@ip.register(tuple)
 def _(netmask):
     return get({"IP": netmask})

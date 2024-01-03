@@ -188,8 +188,10 @@ def protect_sync_only(fn):
         try:
             loop = asyncio.get_running_loop()
         except RuntimeError:
-            return fn(*args)
-        return loop.run_in_executor(None, fn, *args)
+            loop = None
+        if loop:
+            return loop.run_in_executor(None, fn, *args)
+        return fn(*args)
 
     return inner
 

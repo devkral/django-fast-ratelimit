@@ -6,6 +6,7 @@ __all__ = [
     "get",
     "ip_exempt_user",
     "ip_exempt_privileged",
+    "static",
 ]
 
 import functools
@@ -70,6 +71,16 @@ def _get_user_privileged(request) -> Optional[str]:
     ):
         return True
     return False
+
+
+@functools.singledispatch
+def static(request: HttpRequest, group, key="static"):
+    return key.encode("utf8")
+
+
+@static.register(str)
+def _(key):
+    return lambda request, group: static(request, group, key=key)
 
 
 @functools.singledispatch
@@ -144,7 +155,7 @@ def _(netmask):
 
 
 @functools.singledispatch
-def get(_noarg):
+def get(_noarg, group):
     raise ValueError("invalid argument")
 
 

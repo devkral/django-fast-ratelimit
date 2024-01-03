@@ -14,6 +14,35 @@ class SyncTests(TestCase):
         self.user_staff = User.objects.create_user(username="staff", is_staff=True)
         self.user_admin = User.objects.create_user(username="admin", is_superuser=True)
 
+    def test_static(self):
+        request = self.factory.get("/customer/details")
+        r = ratelimit.get_ratelimit(
+            group="test_methods_static",
+            rate="1/s",
+            key="static",
+            request=request,
+            action=ratelimit.Action.INCREASE,
+        )
+        self.assertEqual(r.request_limit, 0)
+        request = self.factory.get("/customer/details")
+        r = ratelimit.get_ratelimit(
+            group="test_methods_static",
+            rate="1/s",
+            key="static",
+            request=request,
+            action=ratelimit.Action.INCREASE,
+        )
+        self.assertEqual(r.request_limit, 1)
+        request = self.factory.get("/customer/details")
+        r = ratelimit.get_ratelimit(
+            group="test_methods_static",
+            rate="1/s",
+            key="static:static1",
+            request=request,
+            action=ratelimit.Action.INCREASE,
+        )
+        self.assertEqual(r.request_limit, 0)
+
     def test_ip(self):
         request = self.factory.get("/customer/details")
         r = ratelimit.get_ratelimit(

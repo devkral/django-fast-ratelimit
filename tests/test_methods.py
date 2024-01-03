@@ -215,11 +215,24 @@ class SyncTests(TestCase):
 
 @unittest.skipIf(VERSION[:2] < (4, 0), "unsuported")
 class AsyncTests(TestCase):
-    def setUp(self):
-        # from django.test import AsyncRequestFactory
-        # bugged
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        from django.test import AsyncRequestFactory
 
-        self.factory = RequestFactory()
+        factory = AsyncRequestFactory()
+        request = factory.get("/customer/details", REMOTE_ADDR="127.0.1.1")
+        if request.META["REMOTE_ADDR"] != "127.0.1.1":
+            print(
+                f"\nDjango ({VERSION}) "
+                "AsyncRequestFactory doesn't pass REMOTE_ADDR, fallback to RequestFactory"
+            )
+            cls.factoryClass = RequestFactory
+        else:
+            cls.factoryClass = AsyncRequestFactory
+
+    def setUp(self):
+        self.factory = self.factoryClass()
         self.user_normal = User.objects.create_user(username="normal", is_staff=False)
         self.user_staff = User.objects.create_user(username="staff", is_staff=True)
         self.user_admin = User.objects.create_user(username="admin", is_superuser=True)

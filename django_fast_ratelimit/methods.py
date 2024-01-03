@@ -75,7 +75,7 @@ def _get_user_privileged(request) -> Optional[str]:
 
 @functools.singledispatch
 def static(request: HttpRequest, group, key="static"):
-    return key.encode("utf8")
+    return key
 
 
 @static.register(str)

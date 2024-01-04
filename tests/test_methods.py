@@ -205,6 +205,17 @@ class SyncTests(TestCase):
             )
             self.assertEqual(r.request_limit, 0)
 
+        for i in range(2):
+            request = self.factory.get("/customer/details", REMOTE_ADDR="127.0.0.1")
+            r = ratelimit.get_ratelimit(
+                group="test_methods_ip_exempt_user",
+                rate="1/s",
+                key="ip_exempt_user",
+                request=request,
+                action=ratelimit.Action.INCREASE,
+            )
+        self.assertEqual(r.request_limit, 1)
+
     def test_ip_exempt_privileged(self):
         request = self.factory.get("/customer/details", REMOTE_ADDR="127.0.0.1")
         request.user = self.user_normal
@@ -237,6 +248,49 @@ class SyncTests(TestCase):
                 action=ratelimit.Action.INCREASE,
             )
             self.assertEqual(r.request_limit, 0)
+
+    def test_reset_exemption(self):
+        for keyfn in ["ip_exempt_user", "ip_exempt_privileged"]:
+            for action in [ratelimit.Action.RESET, ratelimit.Action.RESET_EPOCH]:
+                with self.subTest("%(key)s.%(action)s", key=keyfn, action=action.name):
+                    for i in range(2):
+                        request = self.factory.get(
+                            "/customer/details", REMOTE_ADDR="127.0.0.1"
+                        )
+                        ratelimit.get_ratelimit(
+                            group=f"test_methods_{keyfn}_{action.name}",
+                            rate="1/s",
+                            key=keyfn,
+                            request=request,
+                            action=ratelimit.Action.INCREASE,
+                        )
+
+                    request = self.factory.get(
+                        "/customer/details", REMOTE_ADDR="127.0.0.1"
+                    )
+                    request.user = self.user_admin
+                    r = ratelimit.get_ratelimit(
+                        group=f"test_methods_{keyfn}_{action.name}",
+                        rate="1/s",
+                        key=keyfn,
+                        request=request,
+                        action=action,
+                    )
+                    request = self.factory.get(
+                        "/customer/details", REMOTE_ADDR="127.0.0.1"
+                    )
+                    r = ratelimit.get_ratelimit(
+                        group=f"test_methods_{keyfn}_{action.name}",
+                        rate="1/s",
+                        key=keyfn,
+                        request=request,
+                        action=ratelimit.Action.PEEK,
+                    )
+                    # would reset to start of request, request ha blank epoch
+                    if action == ratelimit.Action.RESET_EPOCH:
+                        self.assertEqual(r.request_limit, 1)
+                    else:
+                        self.assertEqual(r.request_limit, 0)
 
     def test_get(self):
         pass
@@ -427,6 +481,36 @@ class AsyncTests(TestCase):
                 action=ratelimit.Action.INCREASE,
             )
             self.assertEqual(r.request_limit, 0)
+
+        for i in range(2):
+            request = self.factory.get("/customer/details", REMOTE_ADDR="127.0.0.1")
+            r = await ratelimit.aget_ratelimit(
+                group="test_methodsa_ip_exempt_user",
+                rate="1/s",
+                key="ip_exempt_user",
+                request=request,
+                action=ratelimit.Action.INCREASE,
+            )
+        self.assertEqual(r.request_limit, 1)
+
+        request = self.factory.get("/customer/details", REMOTE_ADDR="127.0.0.1")
+        request.user = self.user_normal
+        r = await ratelimit.aget_ratelimit(
+            group="test_methodsa_ip_exempt_user",
+            rate="1/s",
+            key="ip_exempt_user",
+            request=request,
+            action=ratelimit.Action.RESET,
+        )
+        request = self.factory.get("/customer/details", REMOTE_ADDR="127.0.0.1")
+        r = await ratelimit.aget_ratelimit(
+            group="test_methodsa_ip_exempt_user",
+            rate="1/s",
+            key="ip_exempt_user",
+            request=request,
+            action=ratelimit.Action.INCREASE,
+        )
+        self.assertEqual(r.request_limit, 0)
 
     async def test_ip_exempt_privileged(self):
         request = self.factory.get("/customer/details", REMOTE_ADDR="127.0.0.1")

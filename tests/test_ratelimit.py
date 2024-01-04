@@ -18,7 +18,7 @@ from django_fast_ratelimit._core import (
 
 
 @singledispatch
-def fake_key_function(request, group, arg1="fake1", arg2=""):
+def fake_key_function(request, group, action, arg1="fake1", arg2=""):
     return "".join((arg1, arg2))
 
 
@@ -42,27 +42,29 @@ class ConstructionTests(TestCase):
 
     def test_keyfunc_retrieval(self):
         self.assertIsInstance(_retrieve_key_func("ip"), types.FunctionType)
-        _retrieve_key_func("ip")(self.factory.get("/home"), "foo")
+        _retrieve_key_func("ip")(
+            self.factory.get("/home"), "foo", ratelimit.Action.PEEK
+        )
         self.assertIsInstance(
             _retrieve_key_func("tests.test_ratelimit.fake_key_function"),
             types.FunctionType,
         )
         self.assertEqual(
             _retrieve_key_func("tests.test_ratelimit.fake_key_function")(
-                self.factory.get("/home"), "foo"
+                self.factory.get("/home"), "foo", ratelimit.Action.PEEK
             ),
             "fake1",
         )
         self.assertEqual(
             _retrieve_key_func("tests.test_ratelimit.fake_key_function:fake2")(
-                self.factory.get("/home"), "foo"
+                self.factory.get("/home"), "foo", ratelimit.Action.PEEK
             ),
             "fake2",
         )
 
         self.assertEqual(
             _retrieve_key_func(("tests.test_ratelimit.fake_key_function", "fake", "2"))(
-                self.factory.get("/home"), "foo"
+                self.factory.get("/home"), "foo", ratelimit.Action.PEEK
             ),
             "fake2",
         )
@@ -130,6 +132,74 @@ class RatelimitTests(TestCase):
             rate="1/s",
             key=b"abc2",
             action=ratelimit.Action.INCREASE,
+        )
+        self.assertEqual(r.request_limit, 0)
+
+    def test_function_arguments_no_request(self):
+        def group_fn(request, action):
+            self.assertIs(request, None)
+            self.assertEqual(action, ratelimit.Action.INCREASE)
+            return "test_arguments_no_request"
+
+        def methods_fn(request, group, action):
+            self.assertIs(request, None)
+            self.assertEqual(group, "test_arguments_no_request")
+            self.assertEqual(action, ratelimit.Action.INCREASE)
+            return ratelimit.ALL
+
+        def rate_fn(request, group, action):
+            self.assertIs(request, None)
+            self.assertEqual(group, "test_arguments_no_request")
+            self.assertEqual(action, ratelimit.Action.INCREASE)
+            return "1/2s"
+
+        def bytes_key_fn(request, group, action):
+            self.assertIs(request, None)
+            self.assertEqual(group, "test_arguments_no_request")
+            self.assertEqual(action, ratelimit.Action.INCREASE)
+            return b"foo"
+
+        r = ratelimit.get_ratelimit(
+            group=group_fn,
+            rate=rate_fn,
+            methods=methods_fn,
+            key=bytes_key_fn,
+            action=ratelimit.Action.INCREASE,
+        )
+        self.assertEqual(r.request_limit, 0)
+
+    def test_function_arguments_with_request(self):
+        def group_fn(request, action):
+            self.assertTrue(request)
+            self.assertEqual(action, ratelimit.Action.INCREASE)
+            return "test_arguments_with_request"
+
+        def methods_fn(request, group, action):
+            self.assertTrue(request)
+            self.assertEqual(group, "test_arguments_with_request")
+            self.assertEqual(action, ratelimit.Action.INCREASE)
+            return ratelimit.SAFE
+
+        def rate_fn(request, group, action):
+            self.assertTrue(request)
+            self.assertEqual(group, "test_arguments_with_request")
+            self.assertEqual(action, ratelimit.Action.INCREASE)
+            return "1/2s"
+
+        def bytes_key_fn(request, group, action):
+            self.assertTrue(request)
+            self.assertEqual(group, "test_arguments_with_request")
+            self.assertEqual(action, ratelimit.Action.INCREASE)
+            return b"foo"
+
+        request = self.factory.get("/customer/details")
+        r = ratelimit.get_ratelimit(
+            group=group_fn,
+            rate=rate_fn,
+            methods=methods_fn,
+            key=bytes_key_fn,
+            action=ratelimit.Action.INCREASE,
+            request=request,
         )
         self.assertEqual(r.request_limit, 0)
 
@@ -557,7 +627,7 @@ class AsyncTests(TestCase):
 
         @ratelimit.protect_sync_only
         @async_unsafe
-        def raise_on_async(request, group):
+        def raise_on_async(request, group, action):
             return group
 
         await ratelimit.aget_ratelimit(

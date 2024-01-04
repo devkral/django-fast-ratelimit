@@ -195,9 +195,9 @@ def get_ratelimit(
     if not epoch:
         epoch = request
     if callable(group):
-        group = group(request)
+        group = group(request, action)
     if callable(methods):
-        methods = methods(request, group)
+        methods = methods(request, group, action)
     assert request or methods == ALL, "error: no request but methods is not ALL"
     assert all(map(lambda x: x.isupper(), methods)), "error: method lowercase"
     if isinstance(methods, str):
@@ -212,7 +212,7 @@ def get_ratelimit(
         key = _retrieve_key_func(key)
 
     if callable(key):
-        key = key(request, group)
+        key = key(request, group, action)
         if isinstance(key, str):
             key = key.encode("utf8")
     assert not isawaitable(key), "cannot use async in sync method %s" % key
@@ -226,7 +226,7 @@ def get_ratelimit(
         return Ratelimit(group=group, end=0)
 
     if callable(rate):
-        rate = rate(request, group)
+        rate = rate(request, group, action)
     rate = parse_rate(rate)
     # if rate is 0 or None, always block and sidestep cache
     if not rate[0]:
@@ -356,12 +356,12 @@ async def aget_ratelimit(
     if not epoch:
         epoch = request
     if callable(group):
-        group = group(request)
+        group = group(request, action)
 
     if isawaitable(group):
         group = await group
     if callable(methods):
-        methods = methods(request, group)
+        methods = methods(request, group, action)
 
     if isawaitable(methods):
         methods = await methods
@@ -379,7 +379,7 @@ async def aget_ratelimit(
         key = _retrieve_key_func(key)
 
     if callable(key):
-        key = key(request, group)
+        key = key(request, group, action)
 
     if isawaitable(key):
         key = await key

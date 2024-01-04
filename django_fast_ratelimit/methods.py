@@ -14,6 +14,7 @@ from typing import Optional
 
 from django.http import HttpRequest
 
+from .misc import Action
 from .misc import get_ip as _get_ip
 from .misc import parse_ip_to_net as _parse_ip_to_net
 from .misc import protect_sync_only as _protect_sync_only
@@ -74,18 +75,18 @@ def _get_user_privileged(request) -> Optional[str]:
 
 
 @functools.singledispatch
-def static(request: HttpRequest, group, key="static"):
+def static(request: HttpRequest, group, action, key="static"):
     return key
 
 
 @static.register(str)
 def _(key):
-    return lambda request, group: static(request, group, key=key)
+    return lambda request, group, action: static(request, group, action, key=key)
 
 
 @functools.singledispatch
 @_protect_sync_only
-def user_or_ip(request: HttpRequest, group):
+def user_or_ip(request: HttpRequest, group, action):
     user = _get_user_pk_as_str_or_none(request)
     if user:
         return user
@@ -99,7 +100,7 @@ def user_or_ip(request: HttpRequest, group):
 def _(netmask):
     ip_fn = _ip_to_net(netmask)
 
-    def _(request, group):
+    def _(request, group, action):
         user = _get_user_pk_as_str_or_none(request)
         if user:
             return user
@@ -110,8 +111,10 @@ def _(netmask):
 
 @functools.singledispatch
 @_protect_sync_only
-def ip_exempt_user(request: HttpRequest, group):
-    if _get_user_pk_as_str_or_none(request):
+def ip_exempt_user(request: HttpRequest, group, action):
+    if bool(_get_user_pk_as_str_or_none(request)) != bool(
+        action in {Action.RESET, Action.RESET_EPOCH}
+    ):
         return 0
     net, is_ipv4 = _parse_ip_to_net(_get_ip(request))
     return net.exploded
@@ -123,8 +126,10 @@ def ip_exempt_user(request: HttpRequest, group):
 def _(netmask):
     ip_fn = _ip_to_net(netmask)
 
-    def _(request, group):
-        if _get_user_pk_as_str_or_none(request):
+    def _(request, group, action):
+        if bool(_get_user_pk_as_str_or_none(request)) != bool(
+            action in {Action.RESET, Action.RESET_EPOCH}
+        ):
             return 0
         return ip_fn(request).exploded
 
@@ -133,8 +138,10 @@ def _(netmask):
 
 @functools.singledispatch
 @_protect_sync_only
-def ip_exempt_privileged(request: HttpRequest, group):
-    if _get_user_privileged(request):
+def ip_exempt_privileged(request: HttpRequest, group, action):
+    if _get_user_privileged(request) != bool(
+        action in {Action.RESET, Action.RESET_EPOCH}
+    ):
         return 0
     net, is_ipv4 = _parse_ip_to_net(_get_ip(request))
     return net.exploded
@@ -146,8 +153,10 @@ def ip_exempt_privileged(request: HttpRequest, group):
 def _(netmask):
     ip_fn = _ip_to_net(netmask)
 
-    def _(request, group):
-        if _get_user_privileged(request):
+    def _(request, group, action):
+        if _get_user_privileged(request) != bool(
+            action in {Action.RESET, Action.RESET_EPOCH}
+        ):
             return 0
         return ip_fn(request).exploded
 
@@ -155,7 +164,7 @@ def _(netmask):
 
 
 @functools.singledispatch
-def get(_noarg, group):
+def get(_noarg, group, action):
     raise ValueError("invalid argument")
 
 
@@ -207,10 +216,10 @@ def _(config):
 
     if check_user:
         return _protect_sync_only(
-            lambda request, group: "".join(_generate_key(request))
+            lambda request, group, action: "".join(_generate_key(request))
         )
     else:
-        return lambda request, group: "".join(_generate_key(request))
+        return lambda request, group, action: "".join(_generate_key(request))
 
 
 @get.register(str)
@@ -241,8 +250,8 @@ def _(*args):
 
 
 @functools.singledispatch
-def user_and_ip(request: HttpRequest, group):
-    return get({"IP": True, "USER": True})(request, group)
+def user_and_ip(request: HttpRequest, group, action):
+    return get({"IP": True, "USER": True})(request, group, action)
 
 
 @user_and_ip.register(str)
@@ -254,8 +263,8 @@ user = get({"USER": True})
 
 
 @functools.singledispatch
-def ip(request: HttpRequest, group):
-    return get({"IP": True})(request, group)
+def ip(request: HttpRequest, group, action):
+    return get({"IP": True})(request, group, action)
 
 
 @ip.register(str)

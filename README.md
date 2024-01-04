@@ -142,14 +142,14 @@ async def func(request):
 
 ### ratelimit.get_ratelimit:
 
--   group: group name, can be callable (fun(request))
+-   group: group name, can be callable (fun(request, action))
 -   rate: rate limit, multiple modes
     Note: if count (first argument) is 0, then it raises the Disabled exception, the second argument must be greater then 0
     -   str: default mode , specify rate in form of "1/4s" or "2/s" or "2/m"
     -   2 element tuple/list: first argument is amount, second are seconds
     -   callable: can return either string or 2 element tuple/list
--   methods: set of checked methods, can be callable (fun(request, group)), modes:
-    -   callable(request, group): allow dynamic
+-   methods: set of checked methods, can be callable (fun(request, group, action)), modes:
+    -   callable(request, group, action): allow dynamic
     -   ratelimit.ALL (default): all methods are checked
     -   \("HEAD", "GET"\): list of checked methods
     -   ratelimit.invertedset(["HEAD", "GET"]): inverted set of checked methods. Here: every method is checked, except HEAD, GET
@@ -159,10 +159,10 @@ async def func(request):
     -   int: sidestep cache, value will be used for request_limit. 0 is for never blocking, >=1 blocks
     -   str: "path.to.method:argument"
     -   str: "inbuildmethod:argument" see methods for valid arguments
-    -   str: "inbuildmethod" method which is ready to use for (request, group)
+    -   str: "inbuildmethod" method which is ready to use for (request, group, action)
     -   tuple,list: ["method", args...]: method (can be also inbuild) with arbitary arguments
     -   bytes: static key (supports mode without request)
-    -   callable: check return of function (fun(request, group)), return must be string (converted to bytes), bytes, bool or int (see "key" for effects)
+    -   callable: check return of function (fun(request, group, action)), return must be string (converted to bytes), bytes, bool or int (see "key" for effects)
 -   empty_to: convert empty keys (b"") to parameter. Must be bytes, bool or int (see "key" for effects) (default: keep b"")
 -   cache: specify cache to use, defaults to RATELIMIT_DEFAULT_CACHE setting (default: "default")
 -   hash_algo: name of hash algorithm for creating cache_key (defaults to RATELIMIT_KEY_HASH setting (default: "sha256"))
@@ -386,7 +386,9 @@ See in methods which methods are available. Here some of them:
 -   user_or_ip: use autenticated user primary key as key. If not autenticated fallback to ip, also with netmask argument
 -   user_and_ip: same like user_or_ip except that the ip matching also applies for authenticated users
 -   ip_exempt_user: same like user_or_ip except that authenticated users are exempted, also with netmask argument
+    -   when specified with reset actions: reset the ip key with the reset action when a user was found
 -   ip_exempt_privileged: same like ip_exempt_user except that authenticated users with staff or superuser flags are exempted, also with netmask argument
+    -   when specified with reset actions: reset the ip key with the reset action when a privileged user was found
 -   get: generate key from multiple sources, input can be multiple input args or a dict with options
 
 ## settings
@@ -402,7 +404,9 @@ See in methods which methods are available. Here some of them:
 
 ## Update Notes:
 
-in version 6.0.0 some small new restrictions are introduces for key functions as string
+in version 7.0.0 method, group and key functions take an additional parameter: action
+
+in version 6.0.0 some small new restrictions are introduced for key functions as string
 
 in version 5.0.0 the package was renamed to django_fast_ratelimit for having an unique namespace. Reason, we have now a companion library: django-fast-iprestrict
 Sorry for the big breaking change.
@@ -418,3 +422,5 @@ in version 1.0.0 the parameter `include_reset` was removed
 in version 1.2.0 reset_epoch calls return the counter before reset instead of the count after
 
 ## TODO:
+
+-   document and test "get" inbuild method

@@ -43,6 +43,19 @@ class SyncTests(TestCase):
         )
         self.assertEqual(r.request_limit, 0)
 
+        class f:
+            def __str__(self):
+                return "ll"
+
+        for arg in [b"fooa", f(), 1382]:
+            ratelimit.get_ratelimit(
+                group="test_methods_static",
+                rate="1/s",
+                key=("static", arg),
+                request=request,
+                action=ratelimit.Action.INCREASE,
+            )
+
     def test_ip(self):
         request = self.factory.get("/customer/details")
         r = ratelimit.get_ratelimit(

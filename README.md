@@ -380,7 +380,9 @@ async def foo()
 
 See in methods which methods are available. Here some of them:
 
--   static: use static key defined by argument, if no argument was specified default to "static", Note: it is easier to provide an key in bytes format but this is for people only able to specify strings
+-   static: use static key defined by argument, if no argument was specified default to b"static", the argument is automatically converted to bytes
+    Note: the conversion for non-bytes objects is str(obj).encode("utf8")
+    Note: it is also possible to specify a bytes key to provide a static argument
 -   ip: use ip address as key, argument: [netmask ipv4/]netmask ipv6
 -   user: authenticated user primary key or b""
 -   user_or_ip: use autenticated user primary key as key. If not autenticated fallback to ip, also with netmask argument

@@ -75,13 +75,15 @@ def _get_user_privileged(request) -> Optional[str]:
 
 
 @functools.singledispatch
-def static(request: HttpRequest, group, action, key="static"):
-    return key
-
-
-@static.register(str)
-def _(key):
+def static(key):
+    if not isinstance(key, bytes):
+        key = str(key).encode("utf8")
     return lambda request, group, action: static(request, group, action, key=key)
+
+
+@static.register(HttpRequest)
+def _(request: HttpRequest, group, action, key=b"static"):
+    return key
 
 
 @functools.singledispatch

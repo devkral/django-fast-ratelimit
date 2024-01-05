@@ -14,6 +14,10 @@ def func_beautyname(request):
     return HttpResponse()
 
 
+def func_beautyname2(request):
+    return HttpResponse()
+
+
 async def afunc_beautyname(request):
     return HttpResponse()
 
@@ -171,6 +175,12 @@ class AsyncDecoratorTests(TestCase):
         self.factory = RequestFactory()
 
     async def test_basic(self):
+        # sync
+        func = ratelimit.decorate(rate="1/2s", key="ip", block=True)(func_beautyname2)
+        r = self.factory.get("/home")
+        await func(r)
+        self.assertEquals(r.ratelimit.group, "tests.test_decorator.func_beautyname2")
+        # as well as async
         func = ratelimit.decorate(rate="1/2s", key="ip", block=True)(afunc_beautyname)
         r = self.factory.get("/home")
         await func(r)

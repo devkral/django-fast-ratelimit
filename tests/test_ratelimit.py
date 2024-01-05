@@ -17,6 +17,10 @@ from django_fast_ratelimit._core import (
 )
 
 
+def _prefixed_function(request, group, action):
+    return b"foobar"
+
+
 @singledispatch
 def fake_key_function(request, group, action, arg1="fake1", arg2=""):
     return "".join((arg1, arg2))
@@ -45,6 +49,13 @@ class ConstructionTests(TestCase):
         _retrieve_key_func("ip")(
             self.factory.get("/home"), "foo", ratelimit.Action.PEEK
         )
+        with self.assertRaises(ValueError):
+            _retrieve_key_func("_ip")
+        with self.assertRaises(ValueError):
+            _retrieve_key_func(b"notvalidhere")
+        with self.assertRaises(ValueError):
+            _retrieve_key_func("tests.test_ratelimit._prefixed_function")
+
         self.assertIsInstance(
             _retrieve_key_func("tests.test_ratelimit.fake_key_function"),
             types.FunctionType,
@@ -153,7 +164,7 @@ class RatelimitTests(TestCase):
             self.assertEqual(action, ratelimit.Action.INCREASE)
             return "1/2s"
 
-        def bytes_key_fn(request, group, action):
+        def _prefixed_bytes_key_fn(request, group, action):
             self.assertIs(request, None)
             self.assertEqual(group, "test_arguments_no_request")
             self.assertEqual(action, ratelimit.Action.INCREASE)
@@ -163,7 +174,7 @@ class RatelimitTests(TestCase):
             group=group_fn,
             rate=rate_fn,
             methods=methods_fn,
-            key=bytes_key_fn,
+            key=_prefixed_bytes_key_fn,
             action=ratelimit.Action.INCREASE,
         )
         self.assertEqual(r.request_limit, 0)
@@ -186,7 +197,7 @@ class RatelimitTests(TestCase):
             self.assertEqual(action, ratelimit.Action.INCREASE)
             return "1/2s"
 
-        def bytes_key_fn(request, group, action):
+        def _prefixed_bytes_key_fn(request, group, action):
             self.assertTrue(request)
             self.assertEqual(group, "test_arguments_with_request")
             self.assertEqual(action, ratelimit.Action.INCREASE)
@@ -197,7 +208,7 @@ class RatelimitTests(TestCase):
             group=group_fn,
             rate=rate_fn,
             methods=methods_fn,
-            key=bytes_key_fn,
+            key=_prefixed_bytes_key_fn,
             action=ratelimit.Action.INCREASE,
             request=request,
         )
@@ -513,7 +524,7 @@ class RatelimitTests(TestCase):
                 key="ip",
                 request=request,
                 action=ratelimit.Action.INCREASE,
-                methods=["POST"],
+                methods=["POST"] if i % 2 else "POST",
             )
             self.assertEqual(r.request_limit, 0)
 

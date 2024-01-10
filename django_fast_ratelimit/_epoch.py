@@ -23,7 +23,7 @@ def epoch_call_count(epoch, cache_key, delta=1) -> Optional[int]:
 def reset_epoch(epoch, cache: BaseCache, cache_key: str) -> int:
     call_count = epoch_call_count(epoch, cache_key, 0)
     expired = cache.get("%s_expire" % cache_key, None)
-    if expired and expired < int(time.time()):
+    if not expired or expired < int(time.time()):
         cache.delete_many([cache_key, "%s_expire" % cache_key])
         count = 0
     else:
@@ -40,7 +40,7 @@ def reset_epoch(epoch, cache: BaseCache, cache_key: str) -> int:
 async def areset_epoch(epoch, cache, cache_key) -> int:
     call_count = epoch_call_count(epoch, cache_key, 0)
     expired = await cache.aget("%s_expire" % cache_key, None)
-    if expired and expired < int(time.time()):
+    if not expired or expired < int(time.time()):
         cache.delete_many([cache_key, "%s_expire" % cache_key])
         count = 0
     else:

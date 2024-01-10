@@ -263,7 +263,7 @@ def get_ratelimit(
     # have some jitter yet, synchronize upcoming timestamps
     cur_time = int(time.time())
     is_expired = False
-    if expired and expired < cur_time:
+    if not expired or expired < cur_time:
         cache.delete_many([cache_key, "%s_expire" % cache_key])
         is_expired = True
 
@@ -282,6 +282,7 @@ def get_ratelimit(
                 # not in cache, but should be in cache, race condition
                 return get_ratelimit(
                     request=request,
+                    epoch=epoch,
                     hashctx=hashctx,
                     key=True,
                     rate=rate,
@@ -289,7 +290,6 @@ def get_ratelimit(
                     group=group,
                     prefix=prefix,
                     cache=cache,
-                    methods=methods,
                 )
     elif is_expired:
         # shortcut, we know the cache is now empty
@@ -456,7 +456,7 @@ async def aget_ratelimit(
     is_expired = False
     # have some jitter yet, synchronize upcoming timestamps
     cur_time = int(time.time())
-    if expired and expired < cur_time:
+    if not expired or expired < cur_time:
         await cache.adelete_many([cache_key, "%s_expire" % cache_key])
         is_expired = True
 
@@ -475,6 +475,7 @@ async def aget_ratelimit(
                 # not in cache, but should be in cache, race condition
                 return await aget_ratelimit(
                     request=request,
+                    epoch=epoch,
                     hashctx=hashctx,
                     key=True,
                     rate=rate,
@@ -482,7 +483,6 @@ async def aget_ratelimit(
                     group=group,
                     prefix=prefix,
                     cache=cache,
-                    methods=methods,
                 )
     elif is_expired:
         # shortcut, we know the cache is now empty

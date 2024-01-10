@@ -25,7 +25,7 @@ class AlternatingAdd(DummyCache):
         self._random_counter = 0
 
     def add(self, key, value, timeout=DEFAULT_TIMEOUT, version=None):
-        self.make_and_validate_key(key, version=version)
+        super().add(key, value, timeout=timeout, version=version)
         self._random_counter = (self._random_counter + 1) % 2
         return self._random_counter == 0
 

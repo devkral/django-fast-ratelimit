@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "django-fast-ratelimit"
 description = "Fast ratelimit implementation with django caches"
-version = "7.1.0"
+version = "7.1.1"
 license = "MIT"
 authors = ["Alexander Kaftan"]
 readme = "README.md"

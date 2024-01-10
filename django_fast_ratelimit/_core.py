@@ -259,12 +259,20 @@ def get_ratelimit(
         if key is not True:
             hashctx.update(key)
     cache_key = _get_cache_key(group, hashctx, prefix)
+    expired = cache.get("%s_expire" % cache_key, None)
+    # have some jitter yet, synchronize upcoming timestamps
+    cur_time = int(time.time())
+    is_expired = False
+    if expired and expired < cur_time:
+        cache.delete_many([cache_key, "%s_expire" % cache_key])
+        is_expired = True
 
     # use a fixed window counter algorithm
     if action == Action.INCREASE:
         epoch_call_count(epoch, cache_key)
         # start with 1 (as if increased)
         if cache.add(cache_key, 1, rate[1]):
+            cache.set("%s_expire" % cache_key, cur_time + rate[1], rate[1])
             count = 1
         else:
             try:
@@ -272,6 +280,9 @@ def get_ratelimit(
                 count = cache.incr(cache_key)
             except ValueError:
                 count = None
+    elif is_expired:
+        # shortcut, we know the cache is now empty
+        count = 0
     elif action == Action.RESET_EPOCH and epoch:
         count = cache.get(cache_key, 0)
         reset_epoch(epoch, cache, cache_key)
@@ -279,14 +290,13 @@ def get_ratelimit(
     else:
         count = cache.get(cache_key, 0)
         if action == Action.RESET:
-            cache.delete(cache_key)
+            cache.delete_many([cache_key, "%s_expire" % cache_key])
 
     return Ratelimit(
         count=count,
         limit=rate[0],
         request_limit=1 if count is None or count > rate[0] else 0,
-        # use jitter of the former calls for end
-        end=int(time.time()) + rate[1],
+        end=cur_time + rate[1],
         group=group,
         cache=cache,
         cache_key=cache_key,
@@ -435,12 +445,20 @@ async def aget_ratelimit(
         if key is not True:
             hashctx.update(key)
     cache_key = _get_cache_key(group, hashctx, prefix)
+    expired = await cache.aget("%s_expire" % cache_key, None)
+    is_expired = False
+    # have some jitter yet, synchronize upcoming timestamps
+    cur_time = int(time.time())
+    if expired and expired < cur_time:
+        await cache.adelete_many([cache_key, "%s_expire" % cache_key])
+        is_expired = True
 
     # use a fixed window counter algorithm
     if action == Action.INCREASE:
         epoch_call_count(epoch, cache_key)
         # start with 1 (as if increased)
         if await cache.aadd(cache_key, 1, rate[1]):
+            await cache.aset("%s_expire" % cache_key, cur_time + rate[1], rate[1])
             count = 1
         else:
             try:
@@ -448,20 +466,22 @@ async def aget_ratelimit(
                 count = await cache.aincr(cache_key)
             except ValueError:
                 count = None
+    elif is_expired:
+        # shortcut, we know the cache is now empty
+        count = 0
     elif action == Action.RESET_EPOCH and epoch:
         count = await cache.aget(cache_key, 0)
         await areset_epoch(epoch, cache, cache_key)
     else:
         count = await cache.aget(cache_key, 0)
         if action == Action.RESET:
-            await cache.adelete(cache_key)
+            await cache.adelete_many([cache_key, "%s_expire" % cache_key])
 
     return Ratelimit(
         count=count,
         limit=rate[0],
         request_limit=1 if count is None or count > rate[0] else 0,
-        # use jitter of the former calls for end
-        end=int(time.time()) + rate[1],
+        end=cur_time + rate[1],
         group=group,
         cache=cache,
         cache_key=cache_key,

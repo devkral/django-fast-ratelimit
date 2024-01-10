@@ -563,29 +563,35 @@ def decorate(func: Optional[Callable] = None, **context):
     decorate_name = context.pop("decorate_name", "ratelimit")
     if "methods" not in context:
         context["methods"] = ALL
+    if not callable(context["methods"]):
+        if isinstance(context["methods"], str):
+            context["methods"] = {context["methods"]}
+        if not isinstance(context["methods"], frozenset):
+            context["methods"] = frozenset(context["methods"])
     if "hash_algo" not in context:
         context["hash_algo"] = getattr(settings, "RATELIMIT_KEY_HASH", "sha256")
+    if not callable(context["rate"]):
+        # result is not callable too (tuple)
+        context["rate"] = parse_rate(context["rate"])
+
+    if (
+        "hashctx" not in context
+        and not callable(context["methods"])
+        and not callable(context["rate"])
+    ):
+        context["hashctx"] = _parse_parts(
+            context["rate"], context["methods"], context["hash_algo"]
+        ).copy()
+
+        if isinstance(context["key"], bytes):
+            context["hashctx"].update(context["key"])
+            context["key"] = True
+    if isinstance(context["key"], (str, tuple, list)):
+        context["key"] = _retrieve_key_func(context["key"])
 
     def _decorate(fn):
         if not context.get("group"):
             context["group"] = o2g(fn)
-        if not callable(context["rate"]):
-            # result is not callable too (tuple)
-            context["rate"] = parse_rate(context["rate"])
-
-        if "hashctx" not in context and not callable(context["methods"]):
-            if not isinstance(context["methods"], frozenset):
-                context["methods"] = frozenset(context["methods"])
-
-            context["hashctx"] = _parse_parts(
-                context["rate"], context["methods"], context["hash_algo"]
-            ).copy()
-
-            if isinstance(context["key"], bytes):
-                context["hashctx"].update(context["key"])
-                context["key"] = True
-        if isinstance(context["key"], (str, tuple, list)):
-            context["key"] = _retrieve_key_func(context["key"])
 
         @functools.wraps(fn)
         def _wrapper(request, *args, **kwargs):

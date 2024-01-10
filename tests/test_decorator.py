@@ -92,6 +92,34 @@ class DecoratorTests(TestCase):
         r = self.factory.get("/home")
         func(r)
 
+    def test_basic_methods(self):
+        func = ratelimit.decorate(
+            rate="1/2s",
+            key="ip",
+            methods="POST",
+            group="test_basic_methods",
+            block=True,
+        )(func_beautyname)
+        for i in range(2):
+            func(self.factory.get("/home"))
+        func(self.factory.post("/home"))
+
+        with self.assertRaises(ratelimit.RatelimitExceeded):
+            func(self.factory.post("/home"))
+
+        func = ratelimit.decorate(
+            rate="1/2s",
+            key="ip",
+            methods={"PUT"},
+            group="test_basic_methods",
+            block=True,
+        )(func_beautyname)
+        for i in range(2):
+            func(self.factory.post("/home"))
+        func(self.factory.put("/home"))
+        with self.assertRaises(ratelimit.RatelimitExceeded):
+            func(self.factory.put("/home"))
+
     def test_block_without_decorate(self):
         func = ratelimit.decorate(
             rate="1/2s",
@@ -192,6 +220,32 @@ class AsyncDecoratorTests(TestCase):
         r.ratelimit.reset()
         r = self.factory.get("/home")
         await func(r)
+
+    async def test_basic_methods(self):
+        func = ratelimit.decorate(
+            rate="1/2s",
+            key="ip",
+            methods="POST",
+            group="test_basic_amethods",
+            block=True,
+        )(afunc_beautyname)
+        for i in range(2):
+            await func(self.factory.get("/home"))
+        await func(self.factory.post("/home"))
+        with self.assertRaises(ratelimit.RatelimitExceeded):
+            await func(self.factory.post("/home"))
+        func = ratelimit.decorate(
+            rate="1/2s",
+            key="ip",
+            methods={"PUT"},
+            group="test_basic_amethods",
+            block=True,
+        )(afunc_beautyname)
+        for i in range(2):
+            await func(self.factory.post("/home"))
+        await func(self.factory.put("/home"))
+        with self.assertRaises(ratelimit.RatelimitExceeded):
+            await func(self.factory.put("/home"))
 
     async def test_view(self):
         r1 = self.factory.get("/home")

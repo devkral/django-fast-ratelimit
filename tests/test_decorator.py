@@ -290,9 +290,10 @@ class AsyncDecoratorTests(TestCase):
         self.assertEquals(r1.ratelimit.group, "here_required2")
 
     async def test_waitview(self):
-        r1 = self.factory.get("/home")
-        old = time.time()
         v = AsyncBogoWaitView.as_view()
+        await v(self.factory.get("/home"))
+        old = time.time()
+        r1 = self.factory.get("/home")
         asyncresult = v(r1)
         self.assertFalse(hasattr(r1, "ratelimit"))
         await asyncresult

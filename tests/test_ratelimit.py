@@ -6,6 +6,8 @@ from functools import partial, singledispatch
 
 from django import VERSION
 from django.contrib.auth.models import AnonymousUser
+from django.core.cache.backends.base import DEFAULT_TIMEOUT
+from django.core.cache.backends.dummy import DummyCache
 from django.test import RequestFactory, TestCase, override_settings
 
 import django_fast_ratelimit as ratelimit
@@ -15,6 +17,17 @@ from django_fast_ratelimit._core import (
     _retrieve_key_func,
     parse_rate,
 )
+
+
+class AlternatingAdd(DummyCache):
+    def __init__(self, host="foo", *args, **kwargs):
+        super().__init__(host, {}, *args, **kwargs)
+        self._random_counter = 0
+
+    def add(self, key, value, timeout=DEFAULT_TIMEOUT, version=None):
+        self.make_and_validate_key(key, version=version)
+        self._random_counter = (self._random_counter + 1) % 2
+        return self._random_counter == 0
 
 
 def _prefixed_function(request, group, action):
@@ -150,6 +163,17 @@ class RatelimitTests(TestCase):
         r = ratelimit.get_ratelimit(group="test_fallbacks", rate="1/10s", key=b"abc")
         r.cache.set(f"{r.cache_key}_expire", int(time.time()) - 2)
         ratelimit.get_ratelimit(group="test_fallbacks", rate="1/10s", key=b"abc")
+
+    def test_fallbacks_cache(self):
+        cache = AlternatingAdd()
+        r = ratelimit.get_ratelimit(
+            group="test_fallbacks",
+            cache=cache,
+            rate="1/10s",
+            key=b"abc",
+            action=ratelimit.Action.INCREASE,
+        )
+        self.assertEqual(r.count, 1)
 
     def test_function_arguments_no_request(self):
         def group_fn(request, action):
@@ -651,6 +675,17 @@ class AsyncTests(TestCase):
             rate="1/s",
             key=raise_on_async,
         )
+
+    async def test_fallbacks_cache(self):
+        cache = AlternatingAdd()
+        r = await ratelimit.aget_ratelimit(
+            group="test_fallbacks",
+            cache=cache,
+            rate="1/10s",
+            key=b"abc",
+            action=ratelimit.Action.INCREASE,
+        )
+        self.assertEqual(r.count, 1)
 
     async def test_reset_fn(self):
         for i in range(0, 2):

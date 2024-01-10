@@ -236,7 +236,7 @@ def get_ratelimit(
         )
 
     # sidestep cache (bool maps to int)
-    if isinstance(key, int):
+    if key is not True and isinstance(key, int):
         return Ratelimit(
             group=group,
             limit=rate[0],
@@ -280,7 +280,17 @@ def get_ratelimit(
                 count = cache.incr(cache_key)
             except ValueError:
                 # not in cache, but should be in cache, race condition
-                count = None
+                return get_ratelimit(
+                    request=request,
+                    hashctx=hashctx,
+                    key=True,
+                    rate=rate,
+                    action=action,
+                    group=group,
+                    prefix=prefix,
+                    cache=cache,
+                    methods=methods,
+                )
     elif is_expired:
         # shortcut, we know the cache is now empty
         count = 0
@@ -294,10 +304,9 @@ def get_ratelimit(
             cache.delete_many([cache_key, "%s_expire" % cache_key])
 
     return Ratelimit(
-        count=0 if count is None else count,
+        count=count,
         limit=rate[0],
-        # block on race condition
-        request_limit=1 if count is None or count > rate[0] else 0,
+        request_limit=1 if count > rate[0] else 0,
         end=cur_time + rate[1],
         group=group,
         cache=cache,
@@ -337,7 +346,6 @@ async def aget_ratelimit(
     cache: Optional[str] = None,
     hash_algo: Optional[str] = None,
     hashctx: Optional[Any] = None,
-    wait: bool = False,
     epoch: Optional[Union[int, object]] = None,
 ) -> Awaitable[Ratelimit]:
     """
@@ -420,11 +428,8 @@ async def aget_ratelimit(
             "disabled by rate is None or 0",
             ratelimit=Ratelimit(group=group, limit=rate[0], request_limit=1, end=0),
         )
-
     # sidestep cache (bool maps to int)
-    if isinstance(key, int):
-        if wait and key > 0:
-            await asyncio.sleep(rate[1])
+    if key is not True and isinstance(key, int):
         return Ratelimit(
             group=group,
             limit=rate[0],
@@ -468,7 +473,17 @@ async def aget_ratelimit(
                 count = await cache.aincr(cache_key)
             except ValueError:
                 # not in cache, but should be in cache, race condition
-                count = None
+                return await aget_ratelimit(
+                    request=request,
+                    hashctx=hashctx,
+                    key=True,
+                    rate=rate,
+                    action=action,
+                    group=group,
+                    prefix=prefix,
+                    cache=cache,
+                    methods=methods,
+                )
     elif is_expired:
         # shortcut, we know the cache is now empty
         count = 0
@@ -481,10 +496,10 @@ async def aget_ratelimit(
             await cache.adelete_many([cache_key, "%s_expire" % cache_key])
 
     return Ratelimit(
-        count=0 if count is None else count,
+        count=count,
         limit=rate[0],
         # block on race condition
-        request_limit=1 if count is None or count > rate[0] else 0,
+        request_limit=1 if count > rate[0] else 0,
         end=cur_time + rate[1],
         group=group,
         cache=cache,

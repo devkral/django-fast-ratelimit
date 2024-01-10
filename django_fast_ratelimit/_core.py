@@ -279,6 +279,7 @@ def get_ratelimit(
                 # incr does not extend cache duration
                 count = cache.incr(cache_key)
             except ValueError:
+                # not in cache, but should be in cache, race condition
                 count = None
     elif is_expired:
         # shortcut, we know the cache is now empty
@@ -293,8 +294,9 @@ def get_ratelimit(
             cache.delete_many([cache_key, "%s_expire" % cache_key])
 
     return Ratelimit(
-        count=count,
+        count=0 if count is None else count,
         limit=rate[0],
+        # block on race condition
         request_limit=1 if count is None or count > rate[0] else 0,
         end=cur_time + rate[1],
         group=group,
@@ -465,6 +467,7 @@ async def aget_ratelimit(
                 # incr does not extend cache duration
                 count = await cache.aincr(cache_key)
             except ValueError:
+                # not in cache, but should be in cache, race condition
                 count = None
     elif is_expired:
         # shortcut, we know the cache is now empty
@@ -478,8 +481,9 @@ async def aget_ratelimit(
             await cache.adelete_many([cache_key, "%s_expire" % cache_key])
 
     return Ratelimit(
-        count=count,
+        count=0 if count is None else count,
         limit=rate[0],
+        # block on race condition
         request_limit=1 if count is None or count > rate[0] else 0,
         end=cur_time + rate[1],
         group=group,

@@ -92,12 +92,12 @@ class DecoratorTests(TestCase):
         r = self.factory.get("/home")
         func(r)
 
-    def test_basic_methods(self):
+    def test_methods_static(self):
         func = ratelimit.decorate(
             rate="1/2s",
             key="ip",
             methods="POST",
-            group="test_basic_methods",
+            group="test_methods_static",
             block=True,
         )(func_beautyname)
         for i in range(2):
@@ -111,7 +111,7 @@ class DecoratorTests(TestCase):
             rate="1/2s",
             key="ip",
             methods={"PUT"},
-            group="test_basic_methods",
+            group="test_methods_static",
             block=True,
         )(func_beautyname)
         for i in range(2):
@@ -119,6 +119,24 @@ class DecoratorTests(TestCase):
         func(self.factory.put("/home"))
         with self.assertRaises(ratelimit.RatelimitExceeded):
             func(self.factory.put("/home"))
+
+    def test_methods_fn(self):
+        def methods(request, group, action):
+            return "POST"
+
+        func = ratelimit.decorate(
+            rate="1/2s",
+            key="ip",
+            methods=methods,
+            group="test_methods_fn",
+            block=True,
+        )(func_beautyname)
+        for i in range(2):
+            func(self.factory.get("/home"))
+        func(self.factory.post("/home"))
+
+        with self.assertRaises(ratelimit.RatelimitExceeded):
+            func(self.factory.post("/home"))
 
     def test_block_without_decorate(self):
         func = ratelimit.decorate(
@@ -221,12 +239,12 @@ class AsyncDecoratorTests(TestCase):
         r = self.factory.get("/home")
         await func(r)
 
-    async def test_basic_methods(self):
+    async def test_methods_static(self):
         func = ratelimit.decorate(
             rate="1/2s",
             key="ip",
             methods="POST",
-            group="test_basic_amethods",
+            group="test_amethods_static",
             block=True,
         )(afunc_beautyname)
         for i in range(2):
@@ -238,7 +256,7 @@ class AsyncDecoratorTests(TestCase):
             rate="1/2s",
             key="ip",
             methods={"PUT"},
-            group="test_basic_amethods",
+            group="test_amethods_static",
             block=True,
         )(afunc_beautyname)
         for i in range(2):
@@ -246,6 +264,24 @@ class AsyncDecoratorTests(TestCase):
         await func(self.factory.put("/home"))
         with self.assertRaises(ratelimit.RatelimitExceeded):
             await func(self.factory.put("/home"))
+
+    async def test_methods_fn(self):
+        async def methods(request, group, action):
+            return "POST"
+
+        func = ratelimit.decorate(
+            rate="1/2s",
+            key="ip",
+            methods=methods,
+            group="test_amethods_fn",
+            block=True,
+        )(afunc_beautyname)
+        for i in range(2):
+            await func(self.factory.get("/home"))
+        await func(self.factory.post("/home"))
+
+        with self.assertRaises(ratelimit.RatelimitExceeded):
+            await func(self.factory.post("/home"))
 
     async def test_view(self):
         r1 = self.factory.get("/home")

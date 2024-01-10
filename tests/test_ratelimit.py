@@ -146,6 +146,11 @@ class RatelimitTests(TestCase):
         )
         self.assertEqual(r.request_limit, 0)
 
+    def test_fallbacks(self):
+        r = ratelimit.get_ratelimit(group="test_fallbacks", rate="1/10s", key=b"abc")
+        r.cache.set(f"{r.cache_key}_expire", int(time.time()) - 2)
+        ratelimit.get_ratelimit(group="test_fallbacks", rate="1/10s", key=b"abc")
+
     def test_function_arguments_no_request(self):
         def group_fn(request, action):
             self.assertIs(request, None)

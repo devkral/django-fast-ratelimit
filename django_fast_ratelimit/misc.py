@@ -84,7 +84,7 @@ class Ratelimit:
             return None
         if not epoch:
             count = self.cache.get(self.cache_key, 0)
-            self.cache.delete(self.cache_key)
+            self.cache.delete_many([self.cache_key, "%s_expire" % self.cache_key])
             return count
         else:
             return reset_epoch(epoch, self.cache, self.cache_key)
@@ -94,7 +94,9 @@ class Ratelimit:
             return None
         if not epoch:
             count = await self.cache.aget(self.cache_key, 0)
-            await self.cache.adelete(self.cache_key)
+            await self.cache.adelete_many(
+                [self.cache_key, "%s_expire" % self.cache_key]
+            )
             return count
         else:
             return await areset_epoch(epoch, self.cache, self.cache_key)

@@ -2,6 +2,7 @@
 private helpers for epoch stuff
 """
 
+import time
 from typing import Optional
 
 from django.core.cache import BaseCache
@@ -19,23 +20,35 @@ def epoch_call_count(epoch, cache_key, delta=1) -> Optional[int]:
     return count
 
 
-def reset_epoch(epoch, cache: BaseCache, cache_key: str) -> Optional[int]:
+def reset_epoch(epoch, cache: BaseCache, cache_key: str) -> int:
     call_count = epoch_call_count(epoch, cache_key, 0)
-    try:
-        # decr does not extend cache duration
-        count = cache.decr(cache_key, call_count)
-    except ValueError:
-        count = None
+    expired = cache.get("%s_expire" % cache_key, None)
+    if expired and expired < int(time.time()):
+        cache.delete_many([cache_key, "%s_expire" % cache_key])
+        count = 0
+    else:
+        try:
+            # decr does not extend cache duration
+            count = cache.decr(cache_key, call_count)
+        except ValueError:
+            # not in cache, no problem
+            count = 0
     epoch_call_count(epoch, cache_key, -call_count)
     return count
 
 
-async def areset_epoch(epoch, cache, cache_key) -> Optional[int]:
+async def areset_epoch(epoch, cache, cache_key) -> int:
     call_count = epoch_call_count(epoch, cache_key, 0)
-    try:
-        # decr does not extend cache duration
-        count = await cache.adecr(cache_key, call_count)
-    except ValueError:
-        count = None
+    expired = await cache.aget("%s_expire" % cache_key, None)
+    if expired and expired < int(time.time()):
+        cache.delete_many([cache_key, "%s_expire" % cache_key])
+        count = 0
+    else:
+        try:
+            # decr does not extend cache duration
+            count = await cache.adecr(cache_key, call_count)
+        except ValueError:
+            # not in cache, no problem
+            count = 0
     epoch_call_count(epoch, cache_key, -call_count)
     return count

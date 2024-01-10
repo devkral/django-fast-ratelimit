@@ -165,6 +165,7 @@ def get_ratelimit(
     hash_algo: Optional[str] = None,
     hashctx: Optional[Any] = None,
     epoch: Optional[Union[object, int]] = None,
+    _fail_count=0,
 ) -> Ratelimit:
     """
     Get ratelimit information
@@ -280,6 +281,8 @@ def get_ratelimit(
                 count = cache.incr(cache_key)
             except ValueError:
                 # not in cache, but should be in cache, race condition
+                if _fail_count >= 3:
+                    raise ValueError("buggy cache or racing cache clear")
                 return get_ratelimit(
                     request=request,
                     epoch=epoch,
@@ -290,6 +293,7 @@ def get_ratelimit(
                     group=group,
                     prefix=prefix,
                     cache=cache,
+                    _fail_count=_fail_count + 1,
                 )
     elif is_expired:
         # shortcut, we know the cache is now empty
@@ -347,6 +351,7 @@ async def aget_ratelimit(
     hash_algo: Optional[str] = None,
     hashctx: Optional[Any] = None,
     epoch: Optional[Union[int, object]] = None,
+    _fail_count=0,
 ) -> Awaitable[Ratelimit]:
     """
     Get ratelimit information
@@ -473,6 +478,8 @@ async def aget_ratelimit(
                 count = await cache.aincr(cache_key)
             except ValueError:
                 # not in cache, but should be in cache, race condition
+                if _fail_count >= 3:
+                    raise ValueError("buggy cache or racing cache clear")
                 return await aget_ratelimit(
                     request=request,
                     epoch=epoch,
@@ -483,6 +490,7 @@ async def aget_ratelimit(
                     group=group,
                     prefix=prefix,
                     cache=cache,
+                    _fail_count=_fail_count + 1,
                 )
     elif is_expired:
         # shortcut, we know the cache is now empty

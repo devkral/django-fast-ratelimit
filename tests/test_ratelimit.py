@@ -14,6 +14,7 @@ import django_fast_ratelimit as ratelimit
 from django_fast_ratelimit._core import (
     _get_cache_key,
     _get_group_hash,
+    _get_RATELIMIT_ENABLED,
     _retrieve_key_func,
     parse_rate,
 )
@@ -174,6 +175,34 @@ class RatelimitTests(TestCase):
             action=ratelimit.Action.INCREASE,
         )
         self.assertEqual(r.count, 1)
+
+    def test_disabled_ratelimit(self):
+        with self.assertRaises(ratelimit.Disabled):
+            ratelimit.get_ratelimit(
+                group="test_disabled_ratelimit",
+                rate="0/1s",
+                key=b"abc",
+                action=ratelimit.Action.INCREASE,
+            )
+        for t1, t2 in [(False, None), (None, False), (False, False)]:
+            with override_settings(RATELIMIT_ENABLED=t1, RATELIMIT_ENABLE=t2):
+                with self.subTest(t1=t1, t2=t2):
+                    _get_RATELIMIT_ENABLED.cache_clear()
+                    if t1 is None and t2 is not None:
+                        with self.assertWarns(DeprecationWarning):
+                            ratelimit.get_ratelimit(
+                                group="test_disabled_ratelimit",
+                                rate="0/1s",
+                                key=b"abc",
+                                action=ratelimit.Action.INCREASE,
+                            )
+                    else:
+                        ratelimit.get_ratelimit(
+                            group="test_disabled_ratelimit",
+                            rate="0/1s",
+                            key=b"abc",
+                            action=ratelimit.Action.INCREASE,
+                        )
 
     def test_function_arguments_no_request(self):
         def group_fn(request, action):

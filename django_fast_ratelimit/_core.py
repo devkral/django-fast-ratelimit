@@ -6,6 +6,7 @@ import functools
 import hashlib
 import re
 import time
+import warnings
 from collections.abc import Callable, Collection
 from importlib import import_module
 from inspect import isawaitable
@@ -146,6 +147,19 @@ def _(key):
     return _retrieve_key_func(key.split(":", 1))
 
 
+@functools.lru_cache(maxsize=1, typed=True)
+def _get_RATELIMIT_ENABLED(settings):
+    enabled = getattr(settings, "RATELIMIT_ENABLED", None)
+    if enabled is not None:
+        return enabled
+
+    enabled = getattr(settings, "RATELIMIT_ENABLE", None)
+    if enabled is not None:
+        warnings.warn("deprecated, use RATELIMIT_ENABLED instead", DeprecationWarning)
+        return enabled
+    return True
+
+
 def get_ratelimit(
     *,
     group: Union[str, Callable[[HttpRequest], str]],
@@ -223,7 +237,7 @@ def get_ratelimit(
 
     assert isinstance(key, (bytes, bool, int))
     # shortcuts for disabling ratelimit
-    if key is False or not getattr(settings, "RATELIMIT_ENABLE", True):
+    if key is False or not _get_RATELIMIT_ENABLED(settings):
         return Ratelimit(group=group, end=0)
 
     if callable(rate):
@@ -418,7 +432,7 @@ async def aget_ratelimit(
 
     assert isinstance(key, (bytes, bool, int)), f"{key!r}: {type(key)}"
     # shortcuts for disabling ratelimit
-    if key is False or not getattr(settings, "RATELIMIT_ENABLE", True):
+    if key is False or not _get_RATELIMIT_ENABLED(settings):
         return Ratelimit(group=group, end=0)
 
     if callable(rate):

@@ -155,7 +155,7 @@ async def func(request):
     -   ratelimit.invertedset(["HEAD", "GET"]): inverted set of checked methods. Here: every method is checked, except HEAD, GET
 -   request: ingoing request (optional if key supports it and methods=ratelimit.ALL (default))
 -   key: multiple modes possible:
-    -   bool: True: skip key (should only be used for baking), False: disable cache (like RATELIMIT_ENABLE=False)
+    -   bool: True: skip key (should only be used for baking), False: disable cache (like RATELIMIT_ENABLED=False)
     -   int: sidestep cache, value will be used for request_limit. 0 is for never blocking, >=1 blocks
     -   str: "path.to.method:argument"
     -   str: "inbuildmethod:argument" see methods for valid arguments
@@ -291,9 +291,10 @@ inverts a collection, useful for http methods
 ### ratelimit.get_RATELIMIT_TRUSTED_PROXY:
 
 get the `RATELIMIT_TRUSTED_PROXIES` parsed as set
-note: this function is cached. If you change this setting while testing you may have to call:
 
-`ratelimit.get_RATELIMIT_TRUSTED_PROXY.cache_clear()`
+note: this function uses a cached subfunction. If you change this setting while testing you may have to call:
+
+`ratelimit._get_RATELIMIT_TRUSTED_PROXY.cache_clear()`
 
 ### ratelimit.get_ip:
 
@@ -342,7 +343,7 @@ The next arguments are passed to the underlying standard exception class for e.g
 Stronger variant of RatelimitExceeded. Used for cases where limit is 0 and there is no way to pass the ratelimit.
 It is a shortcut for disabling api.
 
-Note: it is weaker than the setting `RATELIMIT_ENABLE`
+Note: it is weaker than the setting `RATELIMIT_ENABLED`
 
 Note: it isn't a subclass from RatelimitExceeded because APIs should be able to differ both cases
 
@@ -398,13 +399,16 @@ See in methods which methods are available. Here some of them:
 -   `RATELIMIT_TESTCLIENT_FALLBACK`: in case instead of a client ip a testclient is detected map to the fallback. Set to "invalid" to fail. Default ::1
 -   `RATELIMIT_GROUP_HASH`: hash function which is used for the group hash (default: md5)
 -   `RATELIMIT_KEY_HASH`: hash function which is used as default for the key hash, can be overridden with hash_algo (default: md5)
--   `RATELIMIT_ENABLE` disable ratelimit (e.g. for tests) (default: enabled)
+-   `RATELIMIT_ENABLED` disable ratelimit (e.g. for tests) (default: enabled)
+-   `RATELIMIT_ENABLE` deprecated old name of RATELIMIT_ENABLED
 -   `RATELIMIT_KEY_PREFIX`: internal prefix for the hash keys (so you don't have to create a new cache). Defaults to "frl:".
 -   `RATELIMIT_DEFAULT_CACHE`: default cache to use, defaults to "default" and can be overridden by cache parameter
 -   `RATELIMIT_TRUSTED_PROXIES`: "all" for allowing all ip addresses to provide forward informations, or an iterable with proxy ips (will be transformed to a set). Note there is a special ip: "unix" for unix sockets. Default: ["unix"]
     Used headers are: `Forwarded`, `X-Forwarded-For`
 
 ## Update Notes:
+
+in version 7.2.0: `RATELIMIT_ENABLE` is renamed to `RATELIMIT_ENABLED`, the old setting is still available, note: in tests where this settings are changed dynamically you may have to import \_get_RATELIMIT_ENABLED and clear the cache, in most cases this isn't neccessary
 
 in version 7.0.0 method, group and key functions take an additional parameter: action
 

@@ -19,7 +19,7 @@ import re
 import sys
 import time
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import IntEnum
 from math import inf
 from typing import Final, Literal, Optional, Union
 
@@ -31,7 +31,7 @@ from django.http import HttpRequest
 from ._epoch import areset_epoch, reset_epoch
 
 
-class Action(Enum):
+class Action(IntEnum):
     PEEK = 1
     INCREASE = 2
     RESET = 3

@@ -49,6 +49,11 @@ class ConstructionTests(TestCase):
     def setUp(self):
         self.factory = RequestFactory()
 
+    def test_action_compatibility(self):
+        # will fail with plain Enum
+        for value in ratelimit.Action.__members__.values():
+            self.assertEqual(value, value.value)
+
     def test_key_length_limits(self):
         _get_group_hash.cache_clear()
         for ha in ["md5", "sha256", "sha512"]:

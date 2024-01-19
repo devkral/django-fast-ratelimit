@@ -26,6 +26,7 @@ _rate = re.compile(r"(\d+)/(\d+)?([smhdw])?")
 
 
 _missing_rate_sentinel = object()
+_missing_rate_tuple = (_missing_rate_sentinel, 1)
 
 _PERIOD_MAP = {
     None: 1,  # second, falllback
@@ -115,7 +116,7 @@ def _(rate) -> tuple[int, int]:
 
 @parse_rate.register(type(None))
 def _(rate) -> tuple[int, int]:
-    return (_missing_rate_sentinel, 1)
+    return _missing_rate_tuple
 
 
 @functools.lru_cache(maxsize=32, typed=False)

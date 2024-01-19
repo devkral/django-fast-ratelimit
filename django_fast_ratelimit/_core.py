@@ -622,7 +622,6 @@ def _chain_sync_decorate(
 
 def decorate(func: Optional[Callable] = None, **context):
     assert context.get("key")
-    assert context.get("rate")
     assert "request" not in context
     assert "action" not in context
     block = context.pop("block", False)
@@ -641,12 +640,18 @@ def decorate(func: Optional[Callable] = None, **context):
             context["methods"] = frozenset(context["methods"])
     if "hash_algo" not in context:
         context["hash_algo"] = getattr(settings, "RATELIMIT_KEY_HASH", "sha256")
-    if not callable(context["rate"]):
+    _rate = context.get("rate", None)
+    if _rate is None:
+        # we cannot use parse rate yet because of check_rate doesn't accept the sentinal
+        context["rate"] = _rate
+    elif not callable(_rate):
         # result is not callable too (tuple)
-        context["rate"] = parse_rate(context["rate"])
+        context["rate"] = parse_rate(_rate)
+    # rate is now set in context and can be used without issues
 
     if (
         "hashctx" not in context
+        and context["rate"] is not None
         and not callable(context["methods"])
         and not callable(context["rate"])
     ):

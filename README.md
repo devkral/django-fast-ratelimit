@@ -148,6 +148,7 @@ async def func(request):
     -   str: default mode , specify rate in form of "1/4s" or "2/s" or "2/m"
     -   2 element tuple/list: first argument is amount, second are seconds
     -   callable: can return either string or 2 element tuple/list
+        None (default): raise ValueError if key function doesn't return False to disable further execution, for django-fast-iprestrict
 -   methods: set of checked methods, can be callable (fun(request, group, action)), modes:
     -   callable(request, group, action): allow dynamic
     -   ratelimit.ALL (default): all methods are checked

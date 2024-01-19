@@ -110,7 +110,7 @@ class ConstructionTests(TestCase):
             self.assertEqual(len(r), 2)
             self.assertEqual(r, rate[1])
         with self.assertRaises(NotImplementedError):
-            parse_rate(None)
+            parse_rate(True)
         with self.assertRaisesRegex(ValueError, "invalid rate format"):
             parse_rate("1")
         with self.assertRaisesRegex(AssertionError, "invalid rate detected"):
@@ -159,6 +159,31 @@ class RatelimitTests(TestCase):
             action=ratelimit.Action.INCREASE,
         )
         self.assertEqual(r.request_limit, 0)
+
+    def test_bad_rate_keyfn(self):
+        def fn(request, group, action):
+            return b"klsds"
+
+        with self.assertRaisesRegex(
+            ValueError,
+            r"rate argument is missing or None and the key \(function\) doesn't sidestep cache",
+        ):
+            ratelimit.get_ratelimit(group="test_bad_rate_keyfn", key=fn)
+
+    def test_no_rate_keyfn(self):
+        def fn(request, group, action):
+            return False
+
+        def fn2(request, group, action):
+            return 0
+
+        def fn3(request, group, action):
+            return 1
+
+        ratelimit.get_ratelimit(group="test_no_rate_keyfn", key=fn)
+        ratelimit.get_ratelimit(group="test_no_rate_keyfn", key=fn2)
+        ratelimit.get_ratelimit(group="test_no_rate_keyfn", key=fn3)
+        ratelimit.get_ratelimit(group="test_no_rate_keyfn", key=1)
 
     def test_fallbacks(self):
         r = ratelimit.get_ratelimit(group="test_fallbacks", rate="1/10s", key=b"abc")

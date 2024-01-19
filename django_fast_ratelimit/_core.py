@@ -25,6 +25,8 @@ rate_out_type = Union[str, tuple, list]
 _rate = re.compile(r"(\d+)/(\d+)?([smhdw])?")
 
 
+_missing_rate_sentinel = object()
+
 _PERIOD_MAP = {
     None: 1,  # second, falllback
     "s": 1,  # second
@@ -81,7 +83,6 @@ def _check_rate(fn):
     return _wrapper
 
 
-@_check_rate
 @functools.singledispatch
 def parse_rate(rate) -> tuple[int, int]:
     raise NotImplementedError
@@ -89,6 +90,7 @@ def parse_rate(rate) -> tuple[int, int]:
 
 @parse_rate.register(str)
 @functools.lru_cache()
+@_check_rate
 def _(rate) -> tuple[int, int]:
     try:
         counter, multiplier, period = _rate.match(rate).groups()
@@ -100,13 +102,20 @@ def _(rate) -> tuple[int, int]:
 
 
 @parse_rate.register(list)
+@_check_rate
 def _(rate) -> tuple[int, int]:
     return tuple(rate)
 
 
 @parse_rate.register(tuple)
+@_check_rate
 def _(rate) -> tuple[int, int]:
     return rate
+
+
+@parse_rate.register(type(None))
+def _(rate) -> tuple[int, int]:
+    return (_missing_rate_sentinel, 1)
 
 
 @functools.lru_cache(maxsize=32, typed=False)
@@ -162,15 +171,21 @@ def _get_RATELIMIT_ENABLED(settings):
 
 def get_ratelimit(
     *,
-    group: Union[str, Callable[[HttpRequest], str]],
+    group: Union[str, Callable[[Optional[HttpRequest], Action], str]],
     key: Union[
         key_type,
-        Callable[[HttpRequest], key_type],
+        Callable[[Optional[HttpRequest], str, Action], key_type],
     ],
-    rate: Union[rate_out_type, Callable[[HttpRequest, str], rate_out_type]],
+    rate: Optional[
+        Union[
+            rate_out_type, Callable[[Optional[HttpRequest], str, Action], rate_out_type]
+        ]
+    ] = None,
     request: Optional[HttpRequest] = None,
     methods: Union[
-        str, Collection, Callable[[HttpRequest, str], Union[Collection, str]]
+        str,
+        Collection,
+        Callable[[Optional[HttpRequest], str, Action], Union[Collection, str]],
     ] = ALL,
     action: Action = Action.PEEK,
     prefix: Optional[str] = None,
@@ -243,10 +258,10 @@ def get_ratelimit(
     if callable(rate):
         rate = rate(request, group, action)
     rate = parse_rate(rate)
-    # if rate is 0 or None, always block and sidestep cache
     if not rate[0]:
+        # if rate is 0, always block and sidestep cache
         raise Disabled(
-            "disabled by rate is None or 0",
+            "disabled by rate is 0",
             ratelimit=Ratelimit(group=group, limit=rate[0], request_limit=1, end=0),
         )
 
@@ -257,6 +272,10 @@ def get_ratelimit(
             limit=rate[0],
             request_limit=key,
             end=int(time.time()) + rate[1],
+        )
+    if rate[0] is _missing_rate_sentinel:
+        raise ValueError(
+            "rate argument is missing or None and the key (function) doesn't sidestep cache"
         )
 
     if not prefix:
@@ -337,24 +356,31 @@ async def aget_ratelimit(
     group: Union[
         str,
         Awaitable[str],
-        Callable[[HttpRequest], Union[Awaitable[str], str]],
+        Callable[[Optional[HttpRequest], Action], Union[Awaitable[str], str]],
     ],
     key: Union[
         key_type,
         Awaitable[key_type],
-        Callable[[HttpRequest], Union[Awaitable[key_type], key_type]],
+        Callable[
+            [Optional[HttpRequest], str, Action], Union[Awaitable[key_type], key_type]
+        ],
     ],
-    rate: Union[
-        rate_out_type,
-        Awaitable[rate_out_type],
-        Callable[[HttpRequest, str], Union[Awaitable[rate_out_type], rate_out_type]],
-    ],
+    rate: Optional[
+        Union[
+            rate_out_type,
+            Awaitable[rate_out_type],
+            Callable[
+                [Optional[HttpRequest], str, Action],
+                Union[Awaitable[rate_out_type], rate_out_type],
+            ],
+        ]
+    ] = None,
     request: Optional[HttpRequest] = None,
     methods: Union[
         str,
         Collection,
         Callable[
-            [HttpRequest, str],
+            [Optional[HttpRequest], str, Action],
             Union[Collection, str],
         ],
     ] = ALL,
@@ -441,10 +467,10 @@ async def aget_ratelimit(
     if isawaitable(rate):
         rate = await rate
     rate = parse_rate(rate)
-    # if rate is 0 or None, always block and sidestep cache
+    # if rate is 0, always block and sidestep cache
     if not rate[0]:
         raise Disabled(
-            "disabled by rate is None or 0",
+            "disabled by rate is 0",
             ratelimit=Ratelimit(group=group, limit=rate[0], request_limit=1, end=0),
         )
     # sidestep cache (bool maps to int)
@@ -454,6 +480,10 @@ async def aget_ratelimit(
             limit=rate[0],
             request_limit=key,
             end=int(time.time()) + rate[1],
+        )
+    if rate[0] is _missing_rate_sentinel:
+        raise ValueError(
+            "rate argument is missing or None and the key (function) doesn't sidestep cache"
         )
 
     if not prefix:

@@ -21,7 +21,7 @@ import time
 from dataclasses import dataclass, field
 from enum import Enum
 from math import inf
-from typing import Literal, Optional, Union
+from typing import Final, Literal, Optional, Union
 
 from django.conf import settings
 from django.core.cache import BaseCache
@@ -163,9 +163,9 @@ class invertedset(frozenset):
         return not super().__contains__(item)
 
 
-ALL = invertedset()
-SAFE = frozenset(["GET", "HEAD", "OPTIONS"])
-UNSAFE = invertedset(SAFE)
+ALL: Final = invertedset()
+SAFE: Final = frozenset(["GET", "HEAD", "OPTIONS"])
+UNSAFE: Final = invertedset(SAFE)
 
 
 class RatelimitExceeded(PermissionDenied):

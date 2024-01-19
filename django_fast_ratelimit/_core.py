@@ -10,7 +10,7 @@ import warnings
 from collections.abc import Callable, Collection
 from importlib import import_module
 from inspect import isawaitable
-from typing import Any, Awaitable, Optional, Union
+from typing import Any, Awaitable, Final, Optional, Union
 
 from django.conf import settings
 from django.core.cache import caches
@@ -19,16 +19,16 @@ from django.http import HttpRequest
 from ._epoch import areset_epoch, epoch_call_count, reset_epoch
 from .misc import ALL, Action, Disabled, Ratelimit, invertedset
 
-key_type = Union[str, tuple, list, bytes, int, bool]
-rate_out_type = Union[str, tuple, list]
+key_type: Final = Union[str, tuple, list, bytes, int, bool]
+rate_out_type: Final = Union[str, tuple, list]
 
-_rate = re.compile(r"(\d+)/(\d+)?([smhdw])?")
+_rate: Final = re.compile(r"(\d+)/(\d+)?([smhdw])?")
 
 
-_missing_rate_sentinel = object()
-_missing_rate_tuple = (_missing_rate_sentinel, 1)
+_missing_rate_sentinel: Final = object()
+_missing_rate_tuple: Final = (_missing_rate_sentinel, 1)
 
-_PERIOD_MAP = {
+_PERIOD_MAP: Final = {
     None: 1,  # second, falllback
     "s": 1,  # second
     "m": 60,  # minute

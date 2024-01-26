@@ -4,6 +4,7 @@ __all__ = [
     "ALL",
     "SAFE",
     "UNSAFE",
+    "Ratelimit",
     "RatelimitExceeded",
     "Disabled",
     "protect_sync_only",

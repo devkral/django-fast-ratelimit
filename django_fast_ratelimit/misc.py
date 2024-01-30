@@ -7,6 +7,7 @@ __all__ = [
     "Ratelimit",
     "RatelimitExceeded",
     "Disabled",
+    "MissingRate",
     "protect_sync_only",
     "get_RATELIMIT_TRUSTED_PROXY",
     "get_ip",
@@ -183,6 +184,10 @@ class Disabled(PermissionDenied):
     def __init__(self, *args, ratelimit: Ratelimit):
         self.ratelimit = ratelimit
         super().__init__(*args)
+
+
+class MissingRate(ValueError):
+    pass
 
 
 def protect_sync_only(fn):

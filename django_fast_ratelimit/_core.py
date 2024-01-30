@@ -17,7 +17,7 @@ from django.core.cache import caches
 from django.http import HttpRequest
 
 from ._epoch import areset_epoch, epoch_call_count, reset_epoch
-from .misc import ALL, Action, Disabled, Ratelimit, invertedset
+from .misc import ALL, Action, Disabled, MissingRate, Ratelimit, invertedset
 
 key_type: Final = Union[str, tuple, list, bytes, int, bool]
 rate_out_type: Final = Union[str, tuple, list]
@@ -278,7 +278,7 @@ def get_ratelimit(
             end=int(time.time()) + rate[1],
         )
     if rate[0] is _missing_rate_sentinel:
-        raise ValueError(
+        raise MissingRate(
             "rate argument is missing or None and the key (function) doesn't sidestep cache"
         )
 
@@ -488,7 +488,7 @@ async def aget_ratelimit(
             end=int(time.time()) + rate[1],
         )
     if rate[0] is _missing_rate_sentinel:
-        raise ValueError(
+        raise MissingRate(
             "rate argument is missing or None and the key (function) doesn't sidestep cache"
         )
 

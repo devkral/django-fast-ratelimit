@@ -170,7 +170,7 @@ class RatelimitTests(TestCase):
             return b"klsds"
 
         with self.assertRaisesRegex(
-            ValueError,
+            ratelimit.MissingRate,
             r"rate argument is missing or None and the key \(function\) doesn't sidestep cache",
         ):
             ratelimit.get_ratelimit(group="test_bad_rate_keyfn", key=fn)

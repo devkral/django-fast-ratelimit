@@ -31,12 +31,12 @@ class AlternatingAdd(DummyCache):
         return self._random_counter == 0
 
 
-def _prefixed_function(request, group, action):
+def _prefixed_function(request, group, action, rate):
     return b"foobar"
 
 
 @singledispatch
-def fake_key_function(request, group, action, arg1="fake1", arg2=""):
+def fake_key_function(request, group, action, rate, arg1="fake1", arg2=""):
     return "".join((arg1, arg2))
 
 
@@ -66,7 +66,7 @@ class ConstructionTests(TestCase):
     def test_keyfunc_retrieval(self):
         self.assertIsInstance(_retrieve_key_func("ip"), types.FunctionType)
         _retrieve_key_func("ip")(
-            self.factory.get("/home"), "foo", ratelimit.Action.PEEK
+            self.factory.get("/home"), "foo", ratelimit.Action.PEEK, None
         )
         with self.assertRaises(ValueError):
             _retrieve_key_func("_ip")
@@ -81,20 +81,20 @@ class ConstructionTests(TestCase):
         )
         self.assertEqual(
             _retrieve_key_func("tests.test_ratelimit.fake_key_function")(
-                self.factory.get("/home"), "foo", ratelimit.Action.PEEK
+                self.factory.get("/home"), "foo", ratelimit.Action.PEEK, None
             ),
             "fake1",
         )
         self.assertEqual(
             _retrieve_key_func("tests.test_ratelimit.fake_key_function:fake2")(
-                self.factory.get("/home"), "foo", ratelimit.Action.PEEK
+                self.factory.get("/home"), "foo", ratelimit.Action.PEEK, None
             ),
             "fake2",
         )
 
         self.assertEqual(
             _retrieve_key_func(("tests.test_ratelimit.fake_key_function", "fake", "2"))(
-                self.factory.get("/home"), "foo", ratelimit.Action.PEEK
+                self.factory.get("/home"), "foo", ratelimit.Action.PEEK, None
             ),
             "fake2",
         )
@@ -166,7 +166,7 @@ class RatelimitTests(TestCase):
         self.assertEqual(r.request_limit, 0)
 
     def test_bad_rate_keyfn(self):
-        def fn(request, group, action):
+        def fn(request, group, action, rate):
             return b"klsds"
 
         with self.assertRaisesRegex(
@@ -176,13 +176,16 @@ class RatelimitTests(TestCase):
             ratelimit.get_ratelimit(group="test_bad_rate_keyfn", key=fn)
 
     def test_no_rate_keyfn(self):
-        def fn(request, group, action):
+        def fn(request, group, action, rate):
+            self.assertIs(rate, None)
             return False
 
-        def fn2(request, group, action):
+        def fn2(request, group, action, rate):
+            self.assertIs(rate, None)
             return 0
 
-        def fn3(request, group, action):
+        def fn3(request, group, action, rate):
+            self.assertIs(rate, None)
             return 1
 
         ratelimit.get_ratelimit(group="test_no_rate_keyfn", key=fn)
@@ -252,7 +255,7 @@ class RatelimitTests(TestCase):
             self.assertEqual(action, ratelimit.Action.INCREASE)
             return "1/2s"
 
-        def _prefixed_bytes_key_fn(request, group, action):
+        def _prefixed_bytes_key_fn(request, group, action, rate):
             self.assertIs(request, None)
             self.assertEqual(group, "test_arguments_no_request")
             self.assertEqual(action, ratelimit.Action.INCREASE)
@@ -285,7 +288,7 @@ class RatelimitTests(TestCase):
             self.assertEqual(action, ratelimit.Action.INCREASE)
             return "1/2s"
 
-        def _prefixed_bytes_key_fn(request, group, action):
+        def _prefixed_bytes_key_fn(request, group, action, rate):
             self.assertTrue(request)
             self.assertEqual(group, "test_arguments_with_request")
             self.assertEqual(action, ratelimit.Action.INCREASE)
@@ -726,7 +729,7 @@ class AsyncTests(TestCase):
 
         @ratelimit.protect_sync_only
         @async_unsafe
-        def raise_on_async(request, group, action):
+        def raise_on_async(request, group, action, rate):
             return group
 
         await ratelimit.aget_ratelimit(

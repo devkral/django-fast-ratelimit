@@ -79,17 +79,19 @@ def _get_user_privileged(request, staff_ok=False) -> Optional[str]:
 def static(key):
     if not isinstance(key, bytes):
         key = str(key).encode("utf8")
-    return lambda request, group, action: static(request, group, action, key=key)
+    return lambda request, group, action, rate: static(
+        request, group, action, rate, key=key
+    )
 
 
 @static.register(HttpRequest)
-def _(request: HttpRequest, group, action, key=b"static"):
+def _(request: HttpRequest, group, action, rate, key=b"static"):
     return key
 
 
 @functools.singledispatch
 @_protect_sync_only
-def user_or_ip(request: HttpRequest, group, action):
+def user_or_ip(request: HttpRequest, group, action, rate):
     user = _get_user_pk_as_str_or_none(request)
     if user:
         return user
@@ -103,7 +105,7 @@ def user_or_ip(request: HttpRequest, group, action):
 def _(netmask):
     ip_fn = _ip_to_net(netmask)
 
-    def _(request, group, action):
+    def _(request, group, action, rate):
         user = _get_user_pk_as_str_or_none(request)
         if user:
             return user
@@ -114,7 +116,7 @@ def _(netmask):
 
 @functools.singledispatch
 @_protect_sync_only
-def ip_exempt_user(request: HttpRequest, group, action):
+def ip_exempt_user(request: HttpRequest, group, action, rate):
     if bool(_get_user_pk_as_str_or_none(request)) != bool(
         action in {Action.RESET, Action.RESET_EPOCH}
     ):
@@ -129,7 +131,7 @@ def ip_exempt_user(request: HttpRequest, group, action):
 def _(netmask):
     ip_fn = _ip_to_net(netmask)
 
-    def _(request, group, action):
+    def _(request, group, action, rate):
         if bool(_get_user_pk_as_str_or_none(request)) != bool(
             action in {Action.RESET, Action.RESET_EPOCH}
         ):
@@ -141,7 +143,7 @@ def _(netmask):
 
 @functools.singledispatch
 @_protect_sync_only
-def ip_exempt_privileged(request: HttpRequest, group, action):
+def ip_exempt_privileged(request: HttpRequest, group, action, rate):
     if _get_user_privileged(request, staff_ok=True) != bool(
         action in {Action.RESET, Action.RESET_EPOCH}
     ):
@@ -156,7 +158,7 @@ def ip_exempt_privileged(request: HttpRequest, group, action):
 def _(netmask):
     ip_fn = _ip_to_net(netmask)
 
-    def _(request, group, action):
+    def _(request, group, action, rate):
         if _get_user_privileged(request, staff_ok=True) != bool(
             action in {Action.RESET, Action.RESET_EPOCH}
         ):
@@ -168,7 +170,7 @@ def _(netmask):
 
 @functools.singledispatch
 @_protect_sync_only
-def ip_exempt_superuser(request: HttpRequest, group, action):
+def ip_exempt_superuser(request: HttpRequest, group, action, rate):
     if _get_user_privileged(request, staff_ok=False) != bool(
         action in {Action.RESET, Action.RESET_EPOCH}
     ):
@@ -183,7 +185,7 @@ def ip_exempt_superuser(request: HttpRequest, group, action):
 def _(netmask):
     ip_fn = _ip_to_net(netmask)
 
-    def _(request, group, action):
+    def _(request, group, action, rate):
         if _get_user_privileged(request, staff_ok=False) != bool(
             action in {Action.RESET, Action.RESET_EPOCH}
         ):
@@ -194,7 +196,7 @@ def _(netmask):
 
 
 @functools.singledispatch
-def get(_noarg, group, action):
+def get(_noarg, group, action, rate):
     raise ValueError("invalid argument")
 
 
@@ -246,10 +248,10 @@ def _(config):
 
     if check_user:
         return _protect_sync_only(
-            lambda request, group, action: "".join(_generate_key(request))
+            lambda request, group, action, rate: "".join(_generate_key(request))
         )
     else:
-        return lambda request, group, action: "".join(_generate_key(request))
+        return lambda request, group, action, rate: "".join(_generate_key(request))
 
 
 @get.register(str)
@@ -280,8 +282,8 @@ def _(*args):
 
 
 @functools.singledispatch
-def user_and_ip(request: HttpRequest, group, action):
-    return get({"IP": True, "USER": True})(request, group, action)
+def user_and_ip(request: HttpRequest, group, action, rate):
+    return get({"IP": True, "USER": True})(request, group, action, rate)
 
 
 @user_and_ip.register(str)
@@ -293,8 +295,8 @@ user = get({"USER": True})
 
 
 @functools.singledispatch
-def ip(request: HttpRequest, group, action):
-    return get({"IP": True})(request, group, action)
+def ip(request: HttpRequest, group, action, rate):
+    return get({"IP": True})(request, group, action, rate)
 
 
 @ip.register(str)

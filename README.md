@@ -410,6 +410,9 @@ See in methods which methods are available. Here some of them:
 
 ## Update Notes:
 
+
+in version 8.0.0: rate is the 4th argument of a key function, I need it for django-fast-iprestrict
+
 in version 7.3.0: rate is now optional (when having an appropiate key (function))
 
 in version 7.2.0: `RATELIMIT_ENABLE` is renamed to `RATELIMIT_ENABLED`, the old setting is still available, note: in tests where this settings are changed dynamically you may have to import \_get_RATELIMIT_ENABLED and clear the cache, in most cases this isn't neccessary

@@ -80,7 +80,7 @@ class DecoratorTests(TestCase):
         self.factory = RequestFactory()
 
     def test_decorate_without_rate(self):
-        def fn(request, group, action):
+        def fn(request, group, action, rate):
             return 0
 
         func = ratelimit.decorate(key=fn)(func_beautyname)
@@ -229,7 +229,7 @@ class AsyncDecoratorTests(TestCase):
         self.factory = RequestFactory()
 
     async def test_decorate_without_rate(self):
-        async def fn(request, group, action):
+        async def fn(request, group, action, rate):
             return 0
 
         func = ratelimit.decorate(key=fn)(afunc_beautyname)

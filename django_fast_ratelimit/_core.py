@@ -223,6 +223,8 @@ def get_ratelimit(
     Returns:
         ratelimit.Ratelimit -- ratelimit object
     """
+    if not _get_RATELIMIT_ENABLED(settings):
+        return Ratelimit(group=group, end=0)
     if not epoch:
         epoch = request
     if callable(group):
@@ -242,8 +244,12 @@ def get_ratelimit(
     if isinstance(key, (str, tuple, list)):
         key = _retrieve_key_func(key)
 
+    if callable(rate):
+        rate = rate(request, group, action)
+    rate = parse_rate(rate)
+
     if callable(key):
-        key = key(request, group, action)
+        key = key(request, group, action, None if rate is _missing_rate_tuple else rate)
         if isinstance(key, str):
             key = key.encode("utf8")
     assert not isawaitable(key), "cannot use async in sync method %s" % key
@@ -253,12 +259,9 @@ def get_ratelimit(
 
     assert isinstance(key, (bytes, bool, int))
     # shortcuts for disabling ratelimit
-    if key is False or not _get_RATELIMIT_ENABLED(settings):
+    if key is False:
         return Ratelimit(group=group, end=0)
 
-    if callable(rate):
-        rate = rate(request, group, action)
-    rate = parse_rate(rate)
     if not rate[0]:
         # if rate is 0, always block and sidestep cache
         raise Disabled(
@@ -419,6 +422,8 @@ async def aget_ratelimit(
     Returns:
         Awaitable[ratelimit.Ratelimit] -- ratelimit object
     """
+    if not _get_RATELIMIT_ENABLED(settings):
+        return Ratelimit(group=group, end=0)
     if not epoch:
         epoch = request
     if callable(group):
@@ -444,8 +449,15 @@ async def aget_ratelimit(
     if isinstance(key, (str, tuple, list)):
         key = _retrieve_key_func(key)
 
+    if callable(rate):
+        rate = rate(request, group)
+
+    if isawaitable(rate):
+        rate = await rate
+    rate = parse_rate(rate)
+
     if callable(key):
-        key = key(request, group, action)
+        key = key(request, group, action, None if rate is _missing_rate_tuple else rate)
 
     if isawaitable(key):
         key = await key
@@ -459,15 +471,8 @@ async def aget_ratelimit(
 
     assert isinstance(key, (bytes, bool, int)), f"{key!r}: {type(key)}"
     # shortcuts for disabling ratelimit
-    if key is False or not _get_RATELIMIT_ENABLED(settings):
+    if key is False:
         return Ratelimit(group=group, end=0)
-
-    if callable(rate):
-        rate = rate(request, group)
-
-    if isawaitable(rate):
-        rate = await rate
-    rate = parse_rate(rate)
     # if rate is 0, always block and sidestep cache
     if not rate[0]:
         raise Disabled(

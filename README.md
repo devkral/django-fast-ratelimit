@@ -393,6 +393,7 @@ See in methods which methods are available. Here some of them:
     -   when specified with reset actions: reset the ip key with the reset action when a user was found
 -   ip_exempt_privileged: same like ip_exempt_user except that authenticated users with staff or superuser flags are exempted, also with netmask argument
     -   when specified with reset actions: reset the ip key with the reset action when a privileged user was found
+    ip_exempt_superuser: same like privileged just exempt only superusers
 -   get: generate key from multiple sources, input can be multiple input args or a dict with options
 
 ## settings

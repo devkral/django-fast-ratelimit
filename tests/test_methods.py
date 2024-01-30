@@ -262,6 +262,38 @@ class SyncTests(TestCase):
             )
             self.assertEqual(r.request_limit, 0)
 
+    def test_ip_exempt_superuser(self):
+        request = self.factory.get("/customer/details", REMOTE_ADDR="127.0.0.1")
+        request.user = self.user_normal
+        r = ratelimit.get_ratelimit(
+            group="test_methods_ip_exempt_superuser",
+            rate="1/s",
+            key="ip_exempt_superuser",
+            request=request,
+            action=ratelimit.Action.INCREASE,
+        )
+        self.assertEqual(r.request_limit, 0)
+        request = self.factory.get("/customer/details", REMOTE_ADDR="127.0.0.1")
+        request.user = self.user_staff
+        r = ratelimit.get_ratelimit(
+            group="test_methods_ip_exempt_superuser",
+            rate="1/s",
+            key="ip_exempt_superuser",
+            request=request,
+            action=ratelimit.Action.INCREASE,
+        )
+        self.assertEqual(r.request_limit, 1)
+        request = self.factory.get("/customer/details", REMOTE_ADDR="127.0.0.1")
+        request.user = self.user_admin
+        r = ratelimit.get_ratelimit(
+            group="test_methods_ip_exempt_superuser",
+            rate="1/s",
+            key="ip_exempt_superuser",
+            request=request,
+            action=ratelimit.Action.INCREASE,
+        )
+        self.assertEqual(r.request_limit, 0)
+
     def test_reset_exemption(self):
         for keyfn in ["ip_exempt_user", "ip_exempt_privileged"]:
             for action in [ratelimit.Action.RESET, ratelimit.Action.RESET_EPOCH]:

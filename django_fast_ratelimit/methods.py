@@ -6,6 +6,7 @@ __all__ = [
     "get",
     "ip_exempt_user",
     "ip_exempt_privileged",
+    "ip_exempt_superuser",
     "static",
 ]
 
@@ -63,14 +64,14 @@ def _get_user_pk_as_str_or_none(request) -> Optional[str]:
     return None
 
 
-def _get_user_privileged(request) -> Optional[str]:
+def _get_user_privileged(request, staff_ok=False) -> Optional[str]:
     if not hasattr(request, "user"):
         return False
-    if request.user.is_authenticated and (
-        getattr(request.user, "is_staff", False)
-        or getattr(request.user, "is_superuser", False)
-    ):
-        return True
+    if request.user.is_authenticated:
+        if getattr(request.user, "is_superuser", False):
+            return True
+        if staff_ok and getattr(request.user, "is_staff", False):
+            return True
     return False
 
 
@@ -141,7 +142,7 @@ def _(netmask):
 @functools.singledispatch
 @_protect_sync_only
 def ip_exempt_privileged(request: HttpRequest, group, action):
-    if _get_user_privileged(request) != bool(
+    if _get_user_privileged(request, staff_ok=True) != bool(
         action in {Action.RESET, Action.RESET_EPOCH}
     ):
         return 0
@@ -156,7 +157,34 @@ def _(netmask):
     ip_fn = _ip_to_net(netmask)
 
     def _(request, group, action):
-        if _get_user_privileged(request) != bool(
+        if _get_user_privileged(request, staff_ok=True) != bool(
+            action in {Action.RESET, Action.RESET_EPOCH}
+        ):
+            return 0
+        return ip_fn(request).exploded
+
+    return _protect_sync_only(_)
+
+
+@functools.singledispatch
+@_protect_sync_only
+def ip_exempt_superuser(request: HttpRequest, group, action):
+    if _get_user_privileged(request, staff_ok=False) != bool(
+        action in {Action.RESET, Action.RESET_EPOCH}
+    ):
+        return 0
+    net, is_ipv4 = _parse_ip_to_net(_get_ip(request))
+    return net.exploded
+
+
+@ip_exempt_superuser.register(str)
+@ip_exempt_superuser.register(list)
+@ip_exempt_superuser.register(tuple)
+def _(netmask):
+    ip_fn = _ip_to_net(netmask)
+
+    def _(request, group, action):
+        if _get_user_privileged(request, staff_ok=False) != bool(
             action in {Action.RESET, Action.RESET_EPOCH}
         ):
             return 0

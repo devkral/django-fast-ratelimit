@@ -192,7 +192,8 @@ class MissingRate(ValueError):
 
 def protect_sync_only(fn):
     @functools.wraps(fn)
-    def inner(*args):
+    def inner(*args, **kwargs):
+        assert not kwargs, "protect_sync_only can only pass positional args"
         try:
             loop = asyncio.get_running_loop()
         except RuntimeError:

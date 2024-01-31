@@ -391,10 +391,22 @@ See in methods which methods are available. Here some of them:
 -   user_and_ip: same like user_or_ip except that the ip matching also applies for authenticated users
 -   ip_exempt_user: same like user_or_ip except that authenticated users are exempted, also with netmask argument
     -   when specified with reset actions: reset the ip key with the reset action when a user was found
--   ip_exempt_privileged: same like ip_exempt_user except that authenticated users with staff or superuser flags are exempted, also with netmask argument
-    -   when specified with reset actions: reset the ip key with the reset action when a privileged user was found
-    ip_exempt_superuser: same like privileged just exempt only superusers
+-   user_or_ip_exempt:
+    user with fallback ip.
+
+    Note: 
+        when permissions, user_ok and staff_ok are not specified exempts for superuser only.
+        Same behavior for reset like ip_exempt_user
+    
+    With following parameters (either list or comma seperated):
+    -   netmask: either ["netmask", ...] or "netmask:.../..."
+    -   not_use_user_pk: when not exempting, the default uses preferred the authenticated user pk, this param skips this and directly fallback to ip, note: the boolean name is inverted
+    -   not_use_ip: block if no user was found, together with not_use_user_pk block non privileged access
+    -   permissions: either ["permission", perm1, perm2, ..] or "permission:perm1"
+    -   user_ok: string, exempts when authenticated user
+    -   staff_ok: string, exempts when staff
 -   get: generate key from multiple sources, input can be multiple input args or a dict with options
+
 
 ## settings
 
@@ -410,6 +422,8 @@ See in methods which methods are available. Here some of them:
 
 ## Update Notes:
 
+
+in version 9.0.0: ip_exempt_superuser and ip_exempt_privileged are replaced by user_or_ip_exempt
 
 in version 8.0.0: rate is the 4th argument of a key function, I need it for django-fast-iprestrict
 

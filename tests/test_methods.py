@@ -235,7 +235,7 @@ class SyncTests(TestCase):
         r = ratelimit.get_ratelimit(
             group="test_methods_ip_exempt_privileged",
             rate="1/s",
-            key="ip_exempt_privileged",
+            key="user_or_ip_exempt:staff_ok,not_use_user_pk",
             request=request,
             action=ratelimit.Action.INCREASE,
         )
@@ -245,7 +245,7 @@ class SyncTests(TestCase):
         r = ratelimit.get_ratelimit(
             group="test_methods_ip_exempt_privileged",
             rate="1/s",
-            key="ip_exempt_privileged",
+            key="user_or_ip_exempt:staff_ok,not_use_user_pk",
             request=request,
             action=ratelimit.Action.INCREASE,
         )
@@ -256,7 +256,7 @@ class SyncTests(TestCase):
             r = ratelimit.get_ratelimit(
                 group="test_methods_ip_exempt_privileged",
                 rate="1/s",
-                key="ip_exempt_privileged",
+                key="user_or_ip_exempt:staff_ok,not_use_user_pk",
                 request=request,
                 action=ratelimit.Action.INCREASE,
             )
@@ -268,7 +268,7 @@ class SyncTests(TestCase):
         r = ratelimit.get_ratelimit(
             group="test_methods_ip_exempt_superuser",
             rate="1/s",
-            key="ip_exempt_superuser",
+            key="user_or_ip_exempt:not_use_user_pk",
             request=request,
             action=ratelimit.Action.INCREASE,
         )
@@ -278,7 +278,7 @@ class SyncTests(TestCase):
         r = ratelimit.get_ratelimit(
             group="test_methods_ip_exempt_superuser",
             rate="1/s",
-            key="ip_exempt_superuser",
+            key="user_or_ip_exempt:not_use_user_pk",
             request=request,
             action=ratelimit.Action.INCREASE,
         )
@@ -288,14 +288,14 @@ class SyncTests(TestCase):
         r = ratelimit.get_ratelimit(
             group="test_methods_ip_exempt_superuser",
             rate="1/s",
-            key="ip_exempt_superuser",
+            key="user_or_ip_exempt:not_use_user_pk",
             request=request,
             action=ratelimit.Action.INCREASE,
         )
         self.assertEqual(r.request_limit, 0)
 
     def test_reset_exemption(self):
-        for keyfn in ["ip_exempt_user", "ip_exempt_privileged"]:
+        for keyfn in ["ip_exempt_user", "user_or_ip_exempt:not_use_user_pk"]:
             for action in [ratelimit.Action.RESET, ratelimit.Action.RESET_EPOCH]:
                 with self.subTest("%(key)s.%(action)s", key=keyfn, action=action.name):
                     for i in range(2):
@@ -563,7 +563,7 @@ class AsyncTests(TestCase):
         r = await ratelimit.aget_ratelimit(
             group="test_methodsa_ip_exempt_privileged",
             rate="1/s",
-            key="ip_exempt_privileged",
+            key="user_or_ip_exempt:staff_ok,not_use_user_pk",
             request=request,
             action=ratelimit.Action.INCREASE,
         )
@@ -573,7 +573,7 @@ class AsyncTests(TestCase):
         r = await ratelimit.aget_ratelimit(
             group="test_methodsa_ip_exempt_privileged",
             rate="1/s",
-            key="ip_exempt_privileged",
+            key="user_or_ip_exempt:staff_ok,not_use_user_pk",
             request=request,
             action=ratelimit.Action.INCREASE,
         )
@@ -584,7 +584,7 @@ class AsyncTests(TestCase):
             r = await ratelimit.aget_ratelimit(
                 group="test_methodsa_ip_exempt_privileged",
                 rate="1/s",
-                key="ip_exempt_privileged",
+                key="user_or_ip_exempt:staff_ok,not_use_user_pk",
                 request=request,
                 action=ratelimit.Action.INCREASE,
             )

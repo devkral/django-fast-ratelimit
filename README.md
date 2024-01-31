@@ -161,7 +161,7 @@ async def func(request):
     -   str: "path.to.method:argument"
     -   str: "inbuildmethod:argument" see methods for valid arguments
     -   str: "inbuildmethod" method which is ready to use for (request, group, action)
-    -   tuple,list: ["method", args...]: method (can be also inbuild) with arbitary arguments
+    -   tuple,list: ["method"/callable, args...]: method (can be also inbuild or a callable) with arbitary arguments
     -   bytes: static key (supports mode without request)
     -   callable: check return of function (fun(request, group, action)), return must be string (converted to bytes), bytes, bool or int (see "key" for effects)
 -   empty_to: convert empty keys (b"") to parameter. Must be bytes, bool or int (see "key" for effects) (default: keep b"")

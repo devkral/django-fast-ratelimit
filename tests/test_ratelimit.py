@@ -40,7 +40,7 @@ def fake_key_function(request, group, action, rate, arg1="fake1", arg2=""):
     return "".join((arg1, arg2))
 
 
-@fake_key_function.register
+@fake_key_function.register(str)
 def _(arg1: str, arg2: str = ""):
     return partial(fake_key_function, arg1=arg1, arg2=arg2)
 
@@ -94,6 +94,13 @@ class ConstructionTests(TestCase):
 
         self.assertEqual(
             _retrieve_key_func(("tests.test_ratelimit.fake_key_function", "fake", "2"))(
+                self.factory.get("/home"), "foo", ratelimit.Action.PEEK, None
+            ),
+            "fake2",
+        )
+
+        self.assertEqual(
+            _retrieve_key_func((fake_key_function, "fake", "2"))(
                 self.factory.get("/home"), "foo", ratelimit.Action.PEEK, None
             ),
             "fake2",

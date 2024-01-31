@@ -140,11 +140,16 @@ def _retrieve_key_func(key):
 @_retrieve_key_func.register(list)
 @_retrieve_key_func.register(tuple)
 def _(key):
-    if "." not in key[0]:
-        impname = "django_fast_ratelimit.methods.%s" % key[0]
+    if len(key) == 0:
+        raise ValueError("key function could not be found")
+    if callable(key[0]):
+        fun = key[0]
     else:
-        impname = key[0]
-    fun = hardened_import_string(impname)
+        if "." not in key[0]:
+            impname = "django_fast_ratelimit.methods.%s" % key[0]
+        else:
+            impname = key[0]
+        fun = hardened_import_string(impname)
     if len(key) > 1:
         return fun(*key[1:])
     if hasattr(fun, "dispatch"):

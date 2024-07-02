@@ -382,31 +382,41 @@ async def foo()
 
 See in methods which methods are available. Here some of them:
 
--   static: use static key defined by argument, if no argument was specified default to b"static", the argument is automatically converted to bytes
+-   `static`: use static key defined by argument, if no argument was specified default to b"static", the argument is automatically converted to bytes
     Note: the conversion for non-bytes objects is str(obj).encode("utf8")
     Note: it is also possible to specify a bytes key to provide a static argument
--   ip: use ip address as key, argument: [netmask ipv4/]netmask ipv6
--   user: authenticated user primary key or b""
--   user_or_ip: use autenticated user primary key as key. If not autenticated fallback to ip, also with netmask argument
--   user_and_ip: same like user_or_ip except that the ip matching also applies for authenticated users
--   ip_exempt_user: same like user_or_ip except that authenticated users are exempted, also with netmask argument
-    -   when specified with reset actions: reset the ip key with the reset action when a user was found
--   user_or_ip_exempt:
-    user with fallback ip.
-
-    Note: 
-        when permissions, user_ok and staff_ok are not specified exempts for superuser only.
-        Same behavior for reset like ip_exempt_user
+-   `ip`: use ip address as key, argument: [netmask ipv4/]netmask ipv6
+-   `user`: authenticated user primary key or b""
+-   `user_or_ip`: use autenticated user primary key as key. If not autenticated fallback to ip, also with netmask argument.
+-   `user_and_ip`: same like user_or_ip except that the ip matching also applies for authenticated users
+-   `ip_exempt_user`: same like user_or_ip except that authenticated users are exempted or the inversion (true). Takes 0-2 arguments (netmask and invert (true,false))
     
+    has the special argument true, which cause the inversion of the user check (false is also possible but without effect). The behavior for multiple true,false is unspecified.
+    Setting to true exempts requests without a user
+
+    When specified with reset actions: reset the ip key with the reset action when a user was found. If inverted the inversion is the case.
+
+    Note: true,false must be strings, True (bool) is used by netmask
+-   `user_or_ip_exempt`:
+    user with fallback ip. Exempts for user specs.
+
+    Note:
+    when permissions, user_ok and staff_ok are not specified exempts for superuser only.
+    Same behavior for reset like ip_exempt_user
+
     With following parameters (either list or comma seperated):
+
     -   netmask: either ["netmask", ...] or "netmask:.../..."
     -   not_use_user_pk: when not exempting, the default uses preferred the authenticated user pk, this param skips this and directly fallback to ip, note: the boolean name is inverted
     -   not_use_ip: block if no user was found, together with not_use_user_pk block non privileged access
     -   permissions: either ["permission", perm1, perm2, ..] or "permission:perm1"
     -   user_ok: string, exempts when authenticated user
     -   staff_ok: string, exempts when staff
--   get: generate key from multiple sources, input can be multiple input args or a dict with options
+    -   invert: flag, inverts the exemption condition, so only users with the parameters are checked, the rest is exempted
 
+    When resetting the key is only resetted if exempted (higher privilege). The invert stuff applies here too (see `ip_exempt_user`).
+
+-   `get`: generate key from multiple sources, input can be multiple input args or a dict with options
 
 ## settings
 
@@ -421,7 +431,6 @@ See in methods which methods are available. Here some of them:
     Used headers are: `Forwarded`, `X-Forwarded-For`
 
 ## Update Notes:
-
 
 in version 9.0.0: ip_exempt_superuser and ip_exempt_privileged are replaced by user_or_ip_exempt
 

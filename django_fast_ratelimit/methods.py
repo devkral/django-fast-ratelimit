@@ -136,10 +136,14 @@ def user_or_ip_exempt(
     user_ok=False,
     staff_ok=False,
     use_user_pk=True,
+    invert=False,
 ):
-    if _get_user_privileged(
-        request, staff_ok=staff_ok, user_ok=user_ok, permissions=permissions
-    ) != bool(action in {Action.RESET, Action.RESET_EPOCH}):
+    if (
+        _get_user_privileged(
+            request, staff_ok=staff_ok, user_ok=user_ok, permissions=permissions
+        )
+        != bool(action in {Action.RESET, Action.RESET_EPOCH})
+    ) != invert:
         return 0
     if use_user_pk:
         user = _get_user_pk_as_str_or_none(request)
@@ -189,6 +193,7 @@ def _(args, **kwargs):
             user_ok="user_ok" in flags,
             staff_ok="staff_ok" in flags,
             use_user_pk="not_use_user_pk" not in flags,
+            invert="invert" in flags,
         )
     )
 
@@ -207,7 +212,16 @@ ip_exempt_user = functools.singledispatch(
 @ip_exempt_user.register(str)
 @ip_exempt_user.register(list)
 @ip_exempt_user.register(tuple)
-def _(netmask):
+def _(args):
+    if isinstance(args, str):
+        args = args.split(",")
+    netmask = True
+    invert = False
+    for arg in args:
+        if arg in {"true", "false"}:
+            invert = arg == "true"
+        else:
+            netmask = arg
     ip_fn = _ip_to_net(netmask)
     return _protect_sync_only(
         functools.partial(
@@ -215,6 +229,7 @@ def _(netmask):
             user_ok=True,
             use_user_pk=False,
             ip_fn=ip_fn,
+            invert=invert,
         )
     )
 

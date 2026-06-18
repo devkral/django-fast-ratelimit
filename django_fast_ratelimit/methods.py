@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 __all__ = [
     "user_or_ip",
     "user_and_ip",

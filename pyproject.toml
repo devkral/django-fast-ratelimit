@@ -1,9 +1,10 @@
-[tool.poetry]
+
+[project]
 name = "django-fast-ratelimit"
 description = "Fast ratelimit implementation with django caches"
-version = "9.1.0"
+version = "9.1.2"
 license = "MIT"
-authors = ["Alexander Kaftan"]
+authors = [{ name = "Alexander Kaftan", email = "devkral@web.de" }]
 readme = "README.md"
 repository = "https://github.com/devkral/django-fast-ratelimit"
 classifiers = [
@@ -13,24 +14,20 @@ classifiers = [
   "License :: OSI Approved :: MIT License",
   "Programming Language :: Python :: 3 :: Only"
 ]
+requires-python = ">=3.10,<4.0"
+dependencies = ["django>=3.0"]
 
-[tool.poetry.dependencies]
-python = ">=3.9,<4.0"
-django = ">=3.0"
+[tool.hatch.envs.hatch-test]
+extra-dependencies = ["tox"]
 
-[tool.poetry.group.test.dependencies]
-tox = "*"
-coverage = "*"
+[tool.hatch.envs.hatch-test.scripts]
+run = "tox -s true -- {args}"
+run-cov = "tox -s true -- {args}"
 
-[tool.poetry.group.dev.dependencies]
-tox = "*"
-django = [
-    {version = "<5.0", python = "<3.10"},
-    {version = ">=5.0", python = ">=3.10"}
-]
-faker = "*"
-coverage = "*"
+
+[tool.hatch.envs.default]
+dependencies = ["faker"]
 
 [build-system]
-requires = ["poetry_core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"

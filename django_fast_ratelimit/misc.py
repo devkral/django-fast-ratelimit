@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 __all__ = [
     "Action",
     "invertedset",
@@ -207,11 +209,21 @@ def protect_sync_only(fn):
 
 @functools.lru_cache(maxsize=1)
 def get_RATELIMIT_TRUSTED_PROXY() -> Union[frozenset, invertedset]:
-    s = getattr(settings, "RATELIMIT_TRUSTED_PROXIES", ["unix"])
-    if s == "all":
+    proxies = getattr(settings, "RATELIMIT_TRUSTED_PROXIES", ["unix"])
+    if proxies == "all":
         return ALL
     else:
-        return frozenset(s)
+        new_proxies = []
+        for proxy in proxies:
+            if proxy == "unix":
+                new_proxies.append(proxy)
+            else:
+                proxy_ip = ipaddress.ip_address(proxy)
+                # allow ipv6 mapped ipv4 when using a wsgi/asgi server with [::] as bind
+                if isinstance(proxy_ip, ipaddress.IPv4Address):
+                    new_proxies.append(f"::ffff:{proxy_ip}")
+                new_proxies.append(str(proxy_ip))
+        return frozenset(new_proxies)
 
 
 _forwarded_regex = re.compile(r'for="?([^";, ]+)', re.IGNORECASE)

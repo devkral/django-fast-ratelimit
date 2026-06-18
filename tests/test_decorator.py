@@ -91,7 +91,7 @@ class DecoratorTests(TestCase):
         func = ratelimit.decorate(rate="1/2s", key="ip", block=True)(func_beautyname)
         r = self.factory.get("/home")
         func(r)
-        self.assertEquals(r.ratelimit.group, "tests.test_decorator.func_beautyname")
+        self.assertEqual(r.ratelimit.group, "tests.test_decorator.func_beautyname")
         self.assertTrue(r.ratelimit.can_reset)
         with self.assertRaises(ratelimit.RatelimitExceeded):
             r2 = self.factory.get("/home")
@@ -207,20 +207,20 @@ class DecoratorTests(TestCase):
     def test_view(self):
         r = self.factory.get("/home")
         BogoView.as_view()(r)
-        self.assertEquals(r.ratelimit.group, "here_required1")
+        self.assertEqual(r.ratelimit.group, "here_required1")
 
     def test_o2goview(self):
         r = self.factory.get("/home")
         v = O2gView.as_view()
         v(r)
-        self.assertEquals(
+        self.assertEqual(
             r.ratelimit2.group,
             "%s.%s" % (O2gView.get.__module__, O2gView.get.__qualname__),
         )
         self.assertTrue(r.ratelimit2.can_reset)
         r = self.factory.get("/home")
         resp = v(r)
-        self.assertEquals(resp.status_code, 400)
+        self.assertEqual(resp.status_code, 400)
 
 
 @unittest.skipIf(VERSION[:2] < (4, 0), "unsuported")
@@ -241,12 +241,12 @@ class AsyncDecoratorTests(TestCase):
         func = ratelimit.decorate(rate="1/2s", key="ip", block=True)(func_beautyname2)
         r = self.factory.get("/home")
         await func(r)
-        self.assertEquals(r.ratelimit.group, "tests.test_decorator.func_beautyname2")
+        self.assertEqual(r.ratelimit.group, "tests.test_decorator.func_beautyname2")
         # as well as async
         func = ratelimit.decorate(rate="1/2s", key="ip", block=True)(afunc_beautyname)
         r = self.factory.get("/home")
         await func(r)
-        self.assertEquals(r.ratelimit.group, "tests.test_decorator.afunc_beautyname")
+        self.assertEqual(r.ratelimit.group, "tests.test_decorator.afunc_beautyname")
         self.assertTrue(r.ratelimit.can_reset)
         with self.assertRaises(ratelimit.RatelimitExceeded):
             r2 = self.factory.get("/home")
@@ -303,7 +303,7 @@ class AsyncDecoratorTests(TestCase):
         r1 = self.factory.get("/home")
         v = AsyncBogoView.as_view()
         await v(r1)
-        self.assertEquals(r1.ratelimit.group, "here_required2")
+        self.assertEqual(r1.ratelimit.group, "here_required2")
 
     async def test_waitview(self):
         v = AsyncBogoWaitView.as_view()
@@ -316,17 +316,17 @@ class AsyncDecoratorTests(TestCase):
         new = time.time()
         self.assertGreater(new - old, 1)
 
-        self.assertEquals(r1.ratelimit.group, "here_required3")
+        self.assertEqual(r1.ratelimit.group, "here_required3")
 
     async def test_o2goview(self):
         r = self.factory.get("/home")
         v = AsyncO2gView.as_view()
         await v(r)
-        self.assertEquals(
+        self.assertEqual(
             r.ratelimit2.group,
             "%s.%s" % (AsyncO2gView.get.__module__, AsyncO2gView.get.__qualname__),
         )
         self.assertTrue(r.ratelimit2.can_reset)
         r = self.factory.get("/home")
         resp = await v(r)
-        self.assertEquals(resp.status_code, 400)
+        self.assertEqual(resp.status_code, 400)

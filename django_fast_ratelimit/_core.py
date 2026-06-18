@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 __all__ = ["decorate", "o2g", "parse_rate", "get_ratelimit", "aget_ratelimit"]
 
 import asyncio
@@ -401,7 +403,7 @@ async def aget_ratelimit(
     hashctx: Optional[Any] = None,
     epoch: Optional[Union[int, object]] = None,
     _fail_count=0,
-) -> Awaitable[Ratelimit]:
+) -> Ratelimit:
     """
     Get ratelimit information
 
@@ -689,9 +691,9 @@ def decorate(func: Optional[Callable] = None, **context):
                 is_async = True
             except RuntimeError:
                 is_async = False
-            assert (
-                not force_async or is_async
-            ), "non async context and force_async specified or wait specified and force_async != False"
+            assert not force_async or is_async, (
+                "non async context and force_async specified or wait specified and force_async != False"
+            )
             if is_async:
                 return _chain_async_decorate(
                     request=request,
